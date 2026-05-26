@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Builds
+dist/
+client/dist/
+client/dist-ssr/
+server/dist/
+
+# Environment files
+.env
+.env.*
+!.env.example
+server/.env
+client/.env
+client/.env.*
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Local cache
+.cache/
+.temp/
+tmp/
