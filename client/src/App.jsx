@@ -1,29 +1,17 @@
-import { useEffect, useState } from "react";
-import api from "./api/api";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import AuthPage from "./pages/AuthPage";
+import OAuthCompletePage from "./pages/OAuthCompletePage";
 
 function App() {
-  const [message, setMessage] = useState("");
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await api.get("/");
-        setMessage(response.data.message);
-      } catch (error) {
-        console.log(error);
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  return (
-    <div className="h-screen bg-black text-white flex items-center justify-center">
-      <h1 className="text-4xl font-bold">
-        {message}
-      </h1>
-    </div>
-  );
+    return (
+        <BrowserRouter>
+            <Routes>
+                <Route path="/auth" element={<AuthPage />} />
+                <Route path="/oauth-complete" element={<OAuthCompletePage />} />
+                <Route path="/" element={<Navigate to="/auth" replace />} />
+            </Routes>
+        </BrowserRouter>
+    );
 }
 
 export default App;
