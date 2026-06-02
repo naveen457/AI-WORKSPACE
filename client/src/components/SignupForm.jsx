@@ -156,7 +156,7 @@ function SignupForm({ onSignupVerified }) {
             <div className="hidden lg:flex w-2/5 bg-gray-300 dark:bg-neutral-800 items-center justify-center">
                 <div className="text-center">
                     <div className="w-64 h-64 bg-gray-400 dark:bg-neutral-700 rounded-lg flex items-center justify-center">
-                        <span className="text-gray-700 dark:text-neutral-200 text-lg font-semibold">AI Workspace</span>
+                        <span className="text-gray-700 dark:text-neutral-200 text-lg font-semibold">ASTRIX</span>
                     </div>
                 </div>
             </div>
@@ -172,13 +172,13 @@ function SignupForm({ onSignupVerified }) {
                 </span>
 
                 <span className="text-lg font-semibold">
-                    AI Workspace
+                    ASTRIX
                 </span>
             </div>
 
             <div className="bg-[#f7ece7] dark:bg-neutral-900 px-4 py-5 text-center">
                 <h2 className="text-lg font-serif text-black dark:text-neutral-100">
-                    {authStep === "success" ? "Authentication Successful" : "Sign Up for AI Workspace"}
+                    {authStep === "success" ? "Authentication Successful" : "Sign Up for ASTRIX"}
                 </h2>
 
                 <p className="mt-2 text-sm leading-5 text-black dark:text-neutral-300">
@@ -363,7 +363,7 @@ function SignupForm({ onSignupVerified }) {
                     />
 
                     <span>
-                        I agree to receive e-mails from AI Workspace and your terms and conditions.
+                        I agree to receive e-mails from ASTRIX and your terms and conditions.
                     </span>
                 </label>
 

@@ -27,7 +27,7 @@ function AuthPage() {
             <div className="w-full min-h-screen lg:min-h-0 lg:max-w-5xl flex flex-col items-center justify-center gap-6">
 
                 <h1 className="hidden lg:block text-4xl font-bold text-gray-800 dark:text-neutral-100">
-                    AI Workspace
+                    ASTRIX
                 </h1>
 
                 {

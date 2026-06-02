@@ -1,5 +1,6 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import AuthPage from "./pages/AuthPage";
+import HomePage from "./pages/HomePage";
 import OAuthCompletePage from "./pages/OAuthCompletePage";
 
 function App() {
@@ -8,7 +9,7 @@ function App() {
             <Routes>
                 <Route path="/auth" element={<AuthPage />} />
                 <Route path="/oauth-complete" element={<OAuthCompletePage />} />
-                <Route path="/" element={<Navigate to="/auth" replace />} />
+                <Route path="/" element={<HomePage />} />
             </Routes>
         </BrowserRouter>
     );

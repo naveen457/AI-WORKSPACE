@@ -1,8 +1,11 @@
 const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const GitHubStrategy = require("passport-github2").Strategy;
-const AppleStrategy = require("passport-apple").Strategy;
 const User = require("../models/User.js");
+
+const SERVER_URL = (
+  process.env.SERVER_URL || "https://astrix-backend-lj3p.onrender.com"
+).replace(/\/+$/, "");
 
 // Serialize user
 passport.serializeUser((user, done) => {
@@ -27,7 +30,7 @@ passport.use(
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       callbackURL:
         process.env.GOOGLE_CALLBACK_URL ||
-        "http://localhost:5000/auth/google/callback",
+        `${SERVER_URL}/auth/google/callback`,
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
@@ -70,7 +73,9 @@ passport.use(
     {
       clientID: process.env.GITHUB_CLIENT_ID,
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
-      callbackURL: process.env.GITHUB_CALLBACK_URL || "/auth/github/callback",
+      callbackURL:
+        process.env.GITHUB_CALLBACK_URL ||
+        `${SERVER_URL}/auth/github/callback`,
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
@@ -95,47 +100,6 @@ passport.use(
           firstName,
           lastName,
           githubId: profile.id,
-        });
-      } catch (error) {
-        done(error);
-      }
-    },
-  ),
-);
-
-// Apple Strategy
-passport.use(
-  new AppleStrategy(
-    {
-      clientID: process.env.APPLE_CLIENT_ID,
-      teamID: process.env.APPLE_TEAM_ID,
-      keyID: process.env.APPLE_KEY_ID,
-      key: process.env.APPLE_KEY,
-      callbackURL: process.env.APPLE_CALLBACK_URL || "/auth/apple/callback",
-    },
-    async (accessToken, refreshToken, idToken, user, done) => {
-      try {
-        const email = user.email.toLowerCase();
-        const firstName = user.name?.firstName || "Apple";
-        const lastName = user.name?.lastName || "User";
-
-        let existingUser = await User.findOne({ email });
-
-        if (existingUser) {
-          return done(null, {
-            ...existingUser.toObject(),
-            isNewUser: false,
-            provider: "apple",
-          });
-        }
-
-        return done(null, {
-          isNewUser: true,
-          provider: "apple",
-          email,
-          firstName,
-          lastName,
-          appleId: user.id,
         });
       } catch (error) {
         done(error);
