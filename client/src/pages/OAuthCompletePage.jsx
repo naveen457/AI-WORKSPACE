@@ -128,26 +128,32 @@ function OAuthCompletePage() {
     }
 
     return (
-        <div className="flex w-full min-h-screen overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100 dark:from-zinc-950 dark:to-neutral-900 lg:min-h-0 lg:h-[68vh] lg:rounded-lg lg:shadow-2xl">
-            <div className="hidden lg:flex w-2/5 bg-gray-300 dark:bg-neutral-800 items-center justify-center">
-                <div className="text-center">
-                    <div className="w-64 h-64 bg-gray-400 dark:bg-neutral-700 rounded-lg flex items-center justify-center">
-                        <span className="text-gray-700 dark:text-neutral-200 text-lg font-semibold">AI Workspace</span>
-                    </div>
-                </div>
-            </div>
+        <div className="min-h-screen bg-white dark:bg-neutral-950 flex items-center justify-center px-0 py-0 lg:px-4 lg:py-10">
+            <div className="w-full min-h-screen lg:min-h-0 lg:max-w-5xl flex flex-col items-center justify-center gap-6">
+                <h1 className="hidden lg:block text-4xl font-bold text-gray-800 dark:text-neutral-100">
+                    ASTRIX
+                </h1>
 
-            <form
-                onSubmit={handleSubmit}
-                className="w-full lg:w-3/5 bg-white dark:bg-neutral-950 px-8 sm:px-12 py-8 flex flex-col gap-5 justify-center overflow-y-auto"
-            >
+                <div className="flex w-full min-h-screen overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100 dark:from-zinc-950 dark:to-neutral-900 lg:min-h-0 lg:h-[68vh] lg:rounded-lg lg:shadow-2xl">
+                    <div className="hidden lg:flex w-2/5 bg-gray-300 dark:bg-neutral-800 items-center justify-center">
+                        <div className="text-center">
+                            <div className="w-64 h-64 bg-gray-400 dark:bg-neutral-700 rounded-lg flex items-center justify-center">
+                                <span className="text-gray-700 dark:text-neutral-200 text-lg font-semibold">ASTRIX</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <form
+                        onSubmit={handleSubmit}
+                        className="w-full lg:w-3/5 bg-white dark:bg-neutral-950 px-8 sm:px-12 py-8 flex flex-col gap-5 justify-center overflow-y-auto"
+                    >
                 <div className="flex items-center justify-center gap-2 text-[#e89a63]">
                     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#e89a63]">
                         <span className="block h-4 w-2 -skew-x-12 rounded-sm bg-white" />
                     </span>
 
                     <span className="text-lg font-semibold">
-                        AI Workspace
+                        ASTRIX
                     </span>
                 </div>
 
@@ -297,7 +303,9 @@ function OAuthCompletePage() {
                 >
                     {isSubmitting ? "Creating Account..." : "Complete Signup"}
                 </button>
-            </form>
+                    </form>
+                </div>
+            </div>
         </div>
     );
 }

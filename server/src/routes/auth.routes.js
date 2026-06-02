@@ -12,6 +12,14 @@ const router = express.Router();
 
 const BCRYPT_SALT_ROUNDS = 12;
 const OTP_EXPIRY_MS = 10 * 60 * 1000;
+const CLIENT_URL = process.env.CLIENT_URL || "https://astrix-six.vercel.app";
+const JWT_SECRET =
+  process.env.JWT_SECRET ||
+  (process.env.NODE_ENV === "production" ? "" : "dev_jwt_secret_key");
+
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET is required in production");
+}
 
 function isValidEmail(email) {
   return /\S+@\S+\.\S+/.test(email);
@@ -393,12 +401,12 @@ router.get(
           googleId: user.googleId,
           isNewUser: true,
         },
-        process.env.JWT_SECRET || "your_secret_key",
+        JWT_SECRET,
         { expiresIn: "1h" },
       );
 
       return res.redirect(
-        `${process.env.CLIENT_URL || "http://localhost:5173"}/oauth-complete?token=${token}&provider=google`,
+        `${CLIENT_URL}/oauth-complete?token=${token}&provider=google`,
       );
     }
 
@@ -408,12 +416,12 @@ router.get(
         id: user._id,
         email: user.email,
       },
-      process.env.JWT_SECRET || "your_secret_key",
+      JWT_SECRET,
       { expiresIn: "7d" },
     );
 
     res.redirect(
-      `${process.env.CLIENT_URL || "http://localhost:5173"}/auth?token=${token}`,
+      `${CLIENT_URL}/auth?token=${token}`,
     );
   },
 );
@@ -442,12 +450,12 @@ router.get(
           githubId: user.githubId,
           isNewUser: true,
         },
-        process.env.JWT_SECRET || "your_secret_key",
+        JWT_SECRET,
         { expiresIn: "1h" },
       );
 
       return res.redirect(
-        `${process.env.CLIENT_URL || "http://localhost:5173"}/oauth-complete?token=${token}&provider=github`,
+        `${CLIENT_URL}/oauth-complete?token=${token}&provider=github`,
       );
     }
 
@@ -456,60 +464,12 @@ router.get(
         id: user._id,
         email: user.email,
       },
-      process.env.JWT_SECRET || "your_secret_key",
+      JWT_SECRET,
       { expiresIn: "7d" },
     );
 
     res.redirect(
-      `${process.env.CLIENT_URL || "http://localhost:5173"}/auth?token=${token}`,
-    );
-  },
-);
-
-router.get(
-  "/apple",
-  passport.authenticate("apple", {
-    scope: ["email", "name"],
-    session: false,
-  }),
-);
-
-router.get(
-  "/apple/callback",
-  passport.authenticate("apple", { session: false }),
-  (req, res) => {
-    const user = req.user;
-
-    if (user.isNewUser) {
-      const token = jwt.sign(
-        {
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          provider: user.provider,
-          appleId: user.appleId,
-          isNewUser: true,
-        },
-        process.env.JWT_SECRET || "your_secret_key",
-        { expiresIn: "1h" },
-      );
-
-      return res.redirect(
-        `${process.env.CLIENT_URL || "http://localhost:5173"}/oauth-complete?token=${token}&provider=apple`,
-      );
-    }
-
-    const token = jwt.sign(
-      {
-        id: user._id,
-        email: user.email,
-      },
-      process.env.JWT_SECRET || "your_secret_key",
-      { expiresIn: "7d" },
-    );
-
-    res.redirect(
-      `${process.env.CLIENT_URL || "http://localhost:5173"}/auth?token=${token}`,
+      `${CLIENT_URL}/auth?token=${token}`,
     );
   },
 );
@@ -535,7 +495,7 @@ router.post("/oauth-complete-signup", async (req, res) => {
     // Verify token
     let decoded;
     try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET || "your_secret_key");
+      decoded = jwt.verify(token, JWT_SECRET);
     } catch (error) {
       return res.status(401).json({
         message: "Invalid or expired token",
@@ -581,7 +541,7 @@ router.post("/oauth-complete-signup", async (req, res) => {
         id: user._id,
         email: user.email,
       },
-      process.env.JWT_SECRET || "your_secret_key",
+      JWT_SECRET,
       { expiresIn: "7d" },
     );
 

@@ -4,19 +4,28 @@ const dotenv = require("dotenv");
 const session = require("express-session");
 const passport = require("passport");
 
+dotenv.config();
+
 const connectDB = require("./config/db.js");
 const authRoutes = require("./routes/auth.routes.js");
 
-dotenv.config();
 require("./config/passport.js");
 
 connectDB();
 
 const app = express();
+const CLIENT_URL = process.env.CLIENT_URL || "https://astrix-six.vercel.app";
+const SESSION_SECRET =
+  process.env.SESSION_SECRET ||
+  (process.env.NODE_ENV === "production" ? "" : "dev_session_secret");
+
+if (!SESSION_SECRET) {
+  throw new Error("SESSION_SECRET is required in production");
+}
 
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: CLIENT_URL,
     credentials: true,
   }),
 );
@@ -27,7 +36,7 @@ app.use(express.urlencoded({ extended: true }));
 // Session middleware
 app.use(
   session({
-    secret: process.env.SESSION_SECRET || "your_session_secret",
+    secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -46,7 +55,7 @@ app.use("/auth", authRoutes);
 
 app.get("/", (req, res) => {
   res.json({
-    message: "AI Workspace Backend Running",
+    message: "ASTRIX Backend Running",
   });
 });
 

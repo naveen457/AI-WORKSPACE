@@ -29,16 +29,16 @@ async function sendOtpEmail({ to, otp, purpose = "email verification" }) {
   const transporter = getMailTransporter();
   const isPasswordReset = purpose === "password reset";
   const title = isPasswordReset
-    ? "AI Workspace password reset"
-    : "AI Workspace email verification";
+    ? "ASTRIX password reset"
+    : "ASTRIX email verification";
 
   await transporter.sendMail({
     from: process.env.SMTP_FROM,
     to,
     subject: isPasswordReset
-      ? "Your AI Workspace password reset code"
-      : "Your AI Workspace verification code",
-    text: `Your AI Workspace ${purpose} code is ${otp}. It expires in 10 minutes.`,
+      ? "Your ASTRIX password reset code"
+      : "Your ASTRIX verification code",
+    text: `Your ASTRIX ${purpose} code is ${otp}. It expires in 10 minutes.`,
     html: `
       <div style="font-family: Arial, sans-serif; line-height: 1.5;">
         <h2>${title}</h2>
