@@ -8,6 +8,7 @@ dotenv.config();
 
 const connectDB = require("./config/db.js");
 const authRoutes = require("./routes/auth.routes.js");
+const phoneRoutes = require("./routes/phone.routes.js");
 
 require("./config/passport.js");
 
@@ -30,8 +31,8 @@ app.use(
   }),
 );
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 
 // Session middleware
 app.use(
@@ -52,6 +53,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 app.use("/auth", authRoutes);
+app.use("/auth/phone", phoneRoutes);
 
 app.get("/", (req, res) => {
   res.json({

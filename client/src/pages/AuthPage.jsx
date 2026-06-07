@@ -1,13 +1,14 @@
 // src/pages/AuthPage.jsx
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import LoginForm from "../components/LoginForm";
 import SignupForm from "../components/SignupForm";
 
 function AuthPage() {
 
+    const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const [isLogin, setIsLogin] = useState(true);
 
@@ -17,8 +18,9 @@ function AuthPage() {
         if (token) {
             localStorage.setItem("authToken", token);
             setSearchParams({}, { replace: true });
+            navigate("/", { replace: true });
         }
-    }, [searchParams, setSearchParams]);
+    }, [navigate, searchParams, setSearchParams]);
 
     return (
 

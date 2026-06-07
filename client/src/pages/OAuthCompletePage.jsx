@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../api/api";
 
 function decodeJwtPayload(token) {
@@ -15,6 +15,7 @@ function decodeJwtPayload(token) {
 }
 
 function OAuthCompletePage() {
+    const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const token = searchParams.get("token");
     const providerFromUrl = searchParams.get("provider") || "OAuth";
@@ -112,10 +113,11 @@ function OAuthCompletePage() {
 
             if (response.data.token) {
                 localStorage.setItem("authToken", response.data.token);
+                localStorage.setItem("authUser", JSON.stringify(response.data.user));
                 setStatusMessage("Account created successfully! Redirecting...");
                 
                 setTimeout(() => {
-                    window.location.href = `/auth?token=${encodeURIComponent(response.data.token)}`;
+                    navigate("/", { replace: true });
                 }, 1000);
             }
         } catch (error) {

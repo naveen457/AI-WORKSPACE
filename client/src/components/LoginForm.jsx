@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../api/api";
 import OAuthButtons from "./OAuthButtons";
 
 function LoginForm() {
+    const navigate = useNavigate();
 
     const [formData, setFormData] = useState({
         email: "",
@@ -88,12 +90,21 @@ function LoginForm() {
         try {
             setIsSubmitting(true);
 
-            await api.post("/auth/login", {
+            const response = await api.post("/auth/login", {
                 email: formData.email.trim(),
                 password: formData.password
             });
 
-            setStatusMessage("Login successful.");
+            if (response.data.token) {
+                localStorage.setItem("authToken", response.data.token);
+            }
+
+            if (response.data.user) {
+                localStorage.setItem("authUser", JSON.stringify(response.data.user));
+            }
+
+            setStatusMessage("Login successful. Redirecting...");
+            navigate("/");
         } catch (error) {
             setStatusMessage(
                 error.response?.data?.message || "Unable to login. Please try again."

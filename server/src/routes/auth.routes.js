@@ -32,6 +32,56 @@ function normalizeIdentifier(value) {
   return value?.trim().toLowerCase();
 }
 
+function createAuthToken(user) {
+  return jwt.sign(
+    {
+      id: user._id,
+      email: user.email,
+    },
+    JWT_SECRET,
+    { expiresIn: "7d" },
+  );
+}
+
+function getPublicUser(user) {
+  return {
+    id: user._id,
+    email: user.email,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    dateOfBirth: user.dateOfBirth || "",
+    gender: user.gender || "",
+    phone: user.phoneNumber || "",
+    phoneNumber: user.phoneNumber || "",
+    phoneVerified: Boolean(user.isPhoneVerified),
+    isPhoneVerified: Boolean(user.isPhoneVerified),
+    address: user.address || "",
+    profilePhoto: user.profilePhoto || "",
+  };
+}
+
+function requireAuth(req, res, next) {
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.startsWith("Bearer ")
+    ? authHeader.slice("Bearer ".length)
+    : "";
+
+  if (!token) {
+    return res.status(401).json({
+      message: "Authentication required",
+    });
+  }
+
+  try {
+    req.auth = jwt.verify(token, JWT_SECRET);
+    return next();
+  } catch (error) {
+    return res.status(401).json({
+      message: "Invalid or expired session",
+    });
+  }
+}
+
 function isValidPassword(password) {
   return (
     password &&
@@ -185,12 +235,7 @@ router.post("/verify-email-otp", async (req, res) => {
 
     return res.status(201).json({
       message: "Email verified successfully",
-      user: {
-        id: user._id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-      },
+      user: getPublicUser(user),
     });
   } catch (error) {
     return res.status(500).json({
@@ -226,18 +271,193 @@ router.post("/login", async (req, res) => {
       });
     }
 
+    const token = createAuthToken(user);
+
     return res.status(200).json({
       message: "Login successful",
-      user: {
-        id: user._id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-      },
+      token,
+      user: getPublicUser(user),
     });
   } catch (error) {
     return res.status(500).json({
       message: "Unable to login",
+    });
+  }
+});
+
+router.get("/me", requireAuth, async (req, res) => {
+  try {
+    const user = await User.findById(req.auth.id);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    return res.status(200).json({
+      user: getPublicUser(user),
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Unable to load profile",
+    });
+  }
+});
+
+router.put("/profile", requireAuth, async (req, res) => {
+  try {
+    const { firstName, lastName, profilePhoto } = req.body;
+
+    if (!firstName?.trim() || !lastName?.trim()) {
+      return res.status(400).json({
+        message: "First name and last name are required",
+      });
+    }
+
+    if (
+      profilePhoto &&
+      (
+        typeof profilePhoto !== "string" ||
+        !profilePhoto.startsWith("data:image/") ||
+        profilePhoto.length > 1500000
+      )
+    ) {
+      return res.status(400).json({
+        message: "Profile photo must be an image under 1.5 MB",
+      });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.auth.id,
+      {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        profilePhoto: profilePhoto || "",
+      },
+      {
+        new: true,
+        runValidators: true,
+      },
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    return res.status(200).json({
+      message: "Profile updated successfully",
+      user: getPublicUser(user),
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Unable to update profile",
+    });
+  }
+});
+
+router.put("/personal-details", requireAuth, async (req, res) => {
+  try {
+    const {
+      firstName,
+      lastName,
+      dateOfBirth,
+      gender,
+      phoneNumber,
+      address,
+    } = req.body;
+
+    if (!firstName?.trim() || !lastName?.trim()) {
+      return res.status(400).json({
+        message: "First name and last name are required",
+      });
+    }
+
+    const currentUser = await User.findById(req.auth.id);
+
+    if (!currentUser) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    const normalizedPhone = phoneNumber?.trim() || "";
+    const user = await User.findByIdAndUpdate(
+      req.auth.id,
+      {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: currentUser.email,
+        dateOfBirth: dateOfBirth?.trim() || "",
+        gender: gender?.trim() || "",
+        phoneNumber: normalizedPhone,
+        isPhoneVerified:
+          normalizedPhone && normalizedPhone === currentUser.phoneNumber
+            ? currentUser.isPhoneVerified
+            : false,
+        address: address?.trim() || "",
+      },
+      {
+        new: true,
+        runValidators: true,
+      },
+    );
+
+    return res.status(200).json({
+      message: "Personal details updated successfully",
+      token: createAuthToken(user),
+      user: getPublicUser(user),
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Unable to update personal details",
+    });
+  }
+});
+
+router.put("/profile-photo", requireAuth, async (req, res) => {
+  try {
+    const { profilePhoto } = req.body;
+
+    if (
+      profilePhoto &&
+      (
+        typeof profilePhoto !== "string" ||
+        !profilePhoto.startsWith("data:image/") ||
+        profilePhoto.length > 1500000
+      )
+    ) {
+      return res.status(400).json({
+        message: "Profile photo must be an image under 1.5 MB",
+      });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.auth.id,
+      {
+        profilePhoto: profilePhoto || "",
+      },
+      {
+        new: true,
+        runValidators: true,
+      },
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    return res.status(200).json({
+      message: "Profile photo updated successfully",
+      user: getPublicUser(user),
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Unable to update profile photo",
     });
   }
 });
@@ -411,14 +631,7 @@ router.get(
     }
 
     // Existing user - generate JWT and redirect to dashboard
-    const token = jwt.sign(
-      {
-        id: user._id,
-        email: user.email,
-      },
-      JWT_SECRET,
-      { expiresIn: "7d" },
-    );
+    const token = createAuthToken(user);
 
     res.redirect(
       `${CLIENT_URL}/auth?token=${token}`,
@@ -459,14 +672,7 @@ router.get(
       );
     }
 
-    const token = jwt.sign(
-      {
-        id: user._id,
-        email: user.email,
-      },
-      JWT_SECRET,
-      { expiresIn: "7d" },
-    );
+    const token = createAuthToken(user);
 
     res.redirect(
       `${CLIENT_URL}/auth?token=${token}`,
@@ -536,24 +742,12 @@ router.post("/oauth-complete-signup", async (req, res) => {
     });
 
     // Generate JWT
-    const authToken = jwt.sign(
-      {
-        id: user._id,
-        email: user.email,
-      },
-      JWT_SECRET,
-      { expiresIn: "7d" },
-    );
+    const authToken = createAuthToken(user);
 
     return res.status(201).json({
       message: "Account created successfully",
       token: authToken,
-      user: {
-        id: user._id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-      },
+      user: getPublicUser(user),
     });
   } catch (error) {
     return res.status(500).json({

@@ -9,13 +9,18 @@ client/dist/
 client/dist-ssr/
 server/dist/
 
-# Environment files
+# Environment files - NEVER commit credentials
 .env
+.env.local
+.env.*.local
 .env.*
 !.env.example
 server/.env
+server/.env.local
 client/.env
+client/.env.local
 client/.env.*
+!client/.env.example
 
 # Logs
 logs/
