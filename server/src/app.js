@@ -5,7 +5,6 @@ const session = require("express-session");
 const passport = require("passport");
 
 dotenv.config();
-
 const connectDB = require("./config/db.js");
 const authRoutes = require("./routes/auth.routes.js");
 const phoneRoutes = require("./routes/phone.routes.js");

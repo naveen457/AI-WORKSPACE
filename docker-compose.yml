@@ -1,0 +1,23 @@
+services:
+  frontend:
+    build: ./client
+    container_name: astrix-frontend
+    ports:
+      - "5173:5173"
+    env_file:
+      - ./client/.env
+    volumes:
+      - /Astrix/frontend/node_modules
+      - ./client:/Astrix/frontend
+
+  backend:
+    build: ./server
+    container_name: astrix-backend
+    ports:
+      - "5000:5000"
+    volumes:
+      - /Astrix/server/node_modules
+      - ./server:/Astrix/server
+
+    env_file:
+      - ./server/.env

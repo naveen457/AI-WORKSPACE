@@ -3,9 +3,7 @@ const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const GitHubStrategy = require("passport-github2").Strategy;
 const User = require("../models/User.js");
 
-const SERVER_URL = (
-  process.env.SERVER_URL || "https://astrix-backend-lj3p.onrender.com"
-).replace(/\/+$/, "");
+const SERVER_URL = process.env.SERVER_URL.replace(/\/+$/, "");
 
 // Serialize user
 passport.serializeUser((user, done) => {
@@ -29,8 +27,7 @@ passport.use(
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       callbackURL:
-        process.env.GOOGLE_CALLBACK_URL ||
-        `${SERVER_URL}/auth/google/callback`,
+        process.env.GOOGLE_CALLBACK_URL || `${SERVER_URL}/auth/google/callback`,
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
@@ -74,8 +71,7 @@ passport.use(
       clientID: process.env.GITHUB_CLIENT_ID,
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
       callbackURL:
-        process.env.GITHUB_CALLBACK_URL ||
-        `${SERVER_URL}/auth/github/callback`,
+        process.env.GITHUB_CALLBACK_URL || `${SERVER_URL}/auth/github/callback`,
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
