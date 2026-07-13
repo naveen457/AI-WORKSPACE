@@ -12,7 +12,7 @@ const router = express.Router();
 
 const BCRYPT_SALT_ROUNDS = 12;
 const OTP_EXPIRY_MS = 10 * 60 * 1000;
-const CLIENT_URL = process.env.CLIENT_URL || "https://astrix-six.vercel.app";
+const CLIENT_URL = process.env.CLIENT_URL;
 const JWT_SECRET =
   process.env.JWT_SECRET ||
   (process.env.NODE_ENV === "production" ? "" : "dev_jwt_secret_key");
@@ -317,11 +317,9 @@ router.put("/profile", requireAuth, async (req, res) => {
 
     if (
       profilePhoto &&
-      (
-        typeof profilePhoto !== "string" ||
+      (typeof profilePhoto !== "string" ||
         !profilePhoto.startsWith("data:image/") ||
-        profilePhoto.length > 1500000
-      )
+        profilePhoto.length > 1500000)
     ) {
       return res.status(400).json({
         message: "Profile photo must be an image under 1.5 MB",
@@ -360,14 +358,8 @@ router.put("/profile", requireAuth, async (req, res) => {
 
 router.put("/personal-details", requireAuth, async (req, res) => {
   try {
-    const {
-      firstName,
-      lastName,
-      dateOfBirth,
-      gender,
-      phoneNumber,
-      address,
-    } = req.body;
+    const { firstName, lastName, dateOfBirth, gender, phoneNumber, address } =
+      req.body;
 
     if (!firstName?.trim() || !lastName?.trim()) {
       return res.status(400).json({
@@ -423,11 +415,9 @@ router.put("/profile-photo", requireAuth, async (req, res) => {
 
     if (
       profilePhoto &&
-      (
-        typeof profilePhoto !== "string" ||
+      (typeof profilePhoto !== "string" ||
         !profilePhoto.startsWith("data:image/") ||
-        profilePhoto.length > 1500000
-      )
+        profilePhoto.length > 1500000)
     ) {
       return res.status(400).json({
         message: "Profile photo must be an image under 1.5 MB",
@@ -633,9 +623,7 @@ router.get(
     // Existing user - generate JWT and redirect to dashboard
     const token = createAuthToken(user);
 
-    res.redirect(
-      `${CLIENT_URL}/auth?token=${token}`,
-    );
+    res.redirect(`${CLIENT_URL}/auth?token=${token}`);
   },
 );
 
@@ -674,9 +662,7 @@ router.get(
 
     const token = createAuthToken(user);
 
-    res.redirect(
-      `${CLIENT_URL}/auth?token=${token}`,
-    );
+    res.redirect(`${CLIENT_URL}/auth?token=${token}`);
   },
 );
 

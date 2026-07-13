@@ -1,20 +1,25 @@
+const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const session = require("express-session");
 const passport = require("passport");
 
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
 const connectDB = require("./config/db.js");
 const authRoutes = require("./routes/auth.routes.js");
 const phoneRoutes = require("./routes/phone.routes.js");
 
 require("./config/passport.js");
 
-connectDB();
+if (process.env.MONGO_URI) {
+  connectDB();
+} else {
+  console.warn("MONGO_URI is not set; continuing without database connection.");
+}
 
 const app = express();
-const CLIENT_URL = process.env.CLIENT_URL || "https://astrix-six.vercel.app";
+const CLIENT_URL = process.env.CLIENT_URL;
 const SESSION_SECRET =
   process.env.SESSION_SECRET ||
   (process.env.NODE_ENV === "production" ? "" : "dev_session_secret");

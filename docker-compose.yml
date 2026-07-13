@@ -1,23 +1,22 @@
 services:
   frontend:
-    build: ./client
-    container_name: astrix-frontend
+    image: naveenchowdary577/astrix-frontend:1.2
+    build:
+      context: ./client
+      args:
+        VITE_API_URL: https://astrix-backend-1-0.onrender.com
     ports:
       - "5173:5173"
-    env_file:
-      - ./client/.env
-    volumes:
-      - /Astrix/frontend/node_modules
-      - ./client:/Astrix/frontend
+    environment:
+      PORT: 5173
 
   backend:
-    build: ./server
-    container_name: astrix-backend
+    image: naveenchowdary577/astrix-backend:1.2
+    build:
+      context: ./server
     ports:
       - "5000:5000"
-    volumes:
-      - /Astrix/server/node_modules
-      - ./server:/Astrix/server
 
     env_file:
       - ./server/.env
+    
