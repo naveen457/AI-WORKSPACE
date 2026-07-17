@@ -7,6 +7,7 @@ const EmailOtp = require("../models/EmailOtp.js");
 const PasswordResetOtp = require("../models/PasswordResetOtp.js");
 const User = require("../models/User.js");
 const { sendOtpEmail } = require("../utils/mailer.js");
+const { logInfo, logWarn, logError } = require("../utils/logger.js");
 
 const router = express.Router();
 
@@ -96,19 +97,29 @@ router.post("/request-email-otp", async (req, res) => {
   try {
     const { firstName, lastName, email, password, acceptedTerms } = req.body;
 
+    logInfo("Email OTP request received", {
+      firstName: firstName?.trim(),
+      lastName: lastName?.trim(),
+      email: email?.trim(),
+      acceptedTerms,
+    });
+
     if (!firstName?.trim() || !lastName?.trim()) {
+      logWarn("Email OTP request rejected: missing names", { body: req.body });
       return res.status(400).json({
         message: "First name and last name are required",
       });
     }
 
     if (!email?.trim() || !isValidEmail(email)) {
+      logWarn("Email OTP request rejected: invalid email", { email });
       return res.status(400).json({
         message: "A valid email address is required",
       });
     }
 
     if (!isValidPassword(password)) {
+      logWarn("Email OTP request rejected: invalid password format", { email });
       return res.status(400).json({
         message:
           "Password must be at least 8 characters and include uppercase, lowercase, and number",
@@ -116,6 +127,7 @@ router.post("/request-email-otp", async (req, res) => {
     }
 
     if (!acceptedTerms) {
+      logWarn("Email OTP request rejected: terms not accepted", { email });
       return res.status(400).json({
         message: "Please accept the terms and conditions",
       });
@@ -125,6 +137,9 @@ router.post("/request-email-otp", async (req, res) => {
     const existingUser = await User.findOne({ email: normalizedEmail });
 
     if (existingUser) {
+      logWarn("Email OTP request rejected: account already exists", {
+        email: normalizedEmail,
+      });
       return res.status(409).json({
         message: "An account already exists with this email",
       });
@@ -135,6 +150,11 @@ router.post("/request-email-otp", async (req, res) => {
       bcrypt.hash(password, BCRYPT_SALT_ROUNDS),
       bcrypt.hash(otp, BCRYPT_SALT_ROUNDS),
     ]);
+
+    logInfo("Saving email OTP record", {
+      email: normalizedEmail,
+      otpLength: otp.length,
+    });
 
     await EmailOtp.findOneAndUpdate(
       { email: normalizedEmail },
@@ -159,8 +179,16 @@ router.post("/request-email-otp", async (req, res) => {
         to: normalizedEmail,
         otp,
       });
+      logInfo("Email OTP request completed successfully", {
+        email: normalizedEmail,
+      });
     } catch (error) {
       await EmailOtp.deleteOne({ email: normalizedEmail });
+      logError("Email OTP request failed during SMTP send", {
+        email: normalizedEmail,
+        error: error.message,
+        stack: error.stack,
+      });
 
       return res.status(500).json({
         message:
@@ -172,6 +200,11 @@ router.post("/request-email-otp", async (req, res) => {
       message: "OTP sent to email",
     });
   } catch (error) {
+    logError("Email OTP request failed unexpectedly", {
+      error: error.message,
+      stack: error.stack,
+      body: req.body,
+    });
     return res.status(500).json({
       message: "Unable to request email OTP",
     });
@@ -183,7 +216,15 @@ router.post("/verify-email-otp", async (req, res) => {
     const { email, otp } = req.body;
     const normalizedEmail = email?.trim().toLowerCase();
 
+    logInfo("Email OTP verification request received", {
+      email: normalizedEmail,
+      otpLength: otp?.length,
+    });
+
     if (!normalizedEmail || !otp) {
+      logWarn("Email OTP verification rejected: missing inputs", {
+        email: normalizedEmail,
+      });
       return res.status(400).json({
         message: "Email and OTP are required",
       });
@@ -192,6 +233,9 @@ router.post("/verify-email-otp", async (req, res) => {
     const pendingOtp = await EmailOtp.findOne({ email: normalizedEmail });
 
     if (!pendingOtp) {
+      logWarn("Email OTP verification rejected: no pending OTP record", {
+        email: normalizedEmail,
+      });
       return res.status(400).json({
         message: "No OTP request found for this email",
       });
@@ -199,6 +243,9 @@ router.post("/verify-email-otp", async (req, res) => {
 
     if (Date.now() > pendingOtp.expiresAt.getTime()) {
       await EmailOtp.deleteOne({ email: normalizedEmail });
+      logWarn("Email OTP verification rejected: OTP expired", {
+        email: normalizedEmail,
+      });
 
       return res.status(400).json({
         message: "OTP has expired",
@@ -208,6 +255,9 @@ router.post("/verify-email-otp", async (req, res) => {
     const isOtpValid = await bcrypt.compare(otp.trim(), pendingOtp.otpHash);
 
     if (!isOtpValid) {
+      logWarn("Email OTP verification rejected: invalid code", {
+        email: normalizedEmail,
+      });
       return res.status(400).json({
         message: "Invalid OTP",
       });
@@ -217,6 +267,9 @@ router.post("/verify-email-otp", async (req, res) => {
 
     if (existingUser) {
       await EmailOtp.deleteOne({ email: normalizedEmail });
+      logWarn("Email OTP verification rejected: email already exists", {
+        email: normalizedEmail,
+      });
 
       return res.status(409).json({
         message: "An account already exists with this email",
@@ -232,12 +285,21 @@ router.post("/verify-email-otp", async (req, res) => {
     });
 
     await EmailOtp.deleteOne({ email: normalizedEmail });
+    logInfo("Email OTP verified successfully", {
+      email: normalizedEmail,
+      userId: user._id,
+    });
 
     return res.status(201).json({
       message: "Email verified successfully",
       user: getPublicUser(user),
     });
   } catch (error) {
+    logError("Email OTP verification failed unexpectedly", {
+      error: error.message,
+      stack: error.stack,
+      body: req.body,
+    });
     return res.status(500).json({
       message: "Unable to verify email OTP",
     });
@@ -457,7 +519,14 @@ router.post("/request-password-reset-otp", async (req, res) => {
     const { email } = req.body;
     const normalizedEmail = normalizeIdentifier(email);
 
+    logInfo("Password reset OTP request received", {
+      email: normalizedEmail,
+    });
+
     if (!normalizedEmail) {
+      logWarn("Password reset OTP request rejected: missing email", {
+        body: req.body,
+      });
       return res.status(400).json({
         message: "Email is required",
       });
@@ -466,6 +535,9 @@ router.post("/request-password-reset-otp", async (req, res) => {
     const user = await User.findOne({ email: normalizedEmail });
 
     if (!user) {
+      logWarn("Password reset OTP request rejected: no account found", {
+        email: normalizedEmail,
+      });
       return res.status(404).json({
         message: "No account found with this email",
       });
@@ -473,6 +545,11 @@ router.post("/request-password-reset-otp", async (req, res) => {
 
     const otp = createOtp();
     const otpHash = await bcrypt.hash(otp, BCRYPT_SALT_ROUNDS);
+
+    logInfo("Saving password reset OTP record", {
+      email: normalizedEmail,
+      otpLength: otp.length,
+    });
 
     await PasswordResetOtp.findOneAndUpdate(
       { email: normalizedEmail },
@@ -495,8 +572,16 @@ router.post("/request-password-reset-otp", async (req, res) => {
         otp,
         purpose: "password reset",
       });
+      logInfo("Password reset OTP email sent successfully", {
+        email: normalizedEmail,
+      });
     } catch (error) {
       await PasswordResetOtp.deleteOne({ email: normalizedEmail });
+      logError("Password reset OTP send failed", {
+        email: normalizedEmail,
+        error: error.message,
+        stack: error.stack,
+      });
 
       return res.status(500).json({
         message:
@@ -508,6 +593,11 @@ router.post("/request-password-reset-otp", async (req, res) => {
       message: "Password reset OTP sent to email",
     });
   } catch (error) {
+    logError("Password reset OTP request failed unexpectedly", {
+      error: error.message,
+      stack: error.stack,
+      body: req.body,
+    });
     return res.status(500).json({
       message: "Unable to request password reset OTP",
     });
@@ -519,13 +609,24 @@ router.post("/reset-password", async (req, res) => {
     const { email, otp, password } = req.body;
     const normalizedEmail = normalizeIdentifier(email);
 
+    logInfo("Password reset confirmation request received", {
+      email: normalizedEmail,
+      otpLength: otp?.length,
+    });
+
     if (!normalizedEmail || !otp || !password) {
+      logWarn("Password reset rejected: missing inputs", {
+        email: normalizedEmail,
+      });
       return res.status(400).json({
         message: "Email, OTP, and new password are required",
       });
     }
 
     if (!isValidPassword(password)) {
+      logWarn("Password reset rejected: invalid new password", {
+        email: normalizedEmail,
+      });
       return res.status(400).json({
         message:
           "Password must be at least 8 characters and include uppercase, lowercase, and number",
@@ -537,6 +638,9 @@ router.post("/reset-password", async (req, res) => {
     });
 
     if (!pendingOtp) {
+      logWarn("Password reset rejected: no password reset request record", {
+        email: normalizedEmail,
+      });
       return res.status(400).json({
         message: "No password reset request found for this email",
       });
@@ -544,6 +648,9 @@ router.post("/reset-password", async (req, res) => {
 
     if (Date.now() > pendingOtp.expiresAt.getTime()) {
       await PasswordResetOtp.deleteOne({ email: normalizedEmail });
+      logWarn("Password reset rejected: OTP expired", {
+        email: normalizedEmail,
+      });
 
       return res.status(400).json({
         message: "OTP has expired",
@@ -553,6 +660,9 @@ router.post("/reset-password", async (req, res) => {
     const isOtpValid = await bcrypt.compare(otp.trim(), pendingOtp.otpHash);
 
     if (!isOtpValid) {
+      logWarn("Password reset rejected: invalid OTP", {
+        email: normalizedEmail,
+      });
       return res.status(400).json({
         message: "Invalid OTP",
       });
@@ -567,6 +677,9 @@ router.post("/reset-password", async (req, res) => {
 
     if (!user) {
       await PasswordResetOtp.deleteOne({ email: normalizedEmail });
+      logWarn("Password reset failed because account not found", {
+        email: normalizedEmail,
+      });
 
       return res.status(404).json({
         message: "No account found with this email",
@@ -574,11 +687,20 @@ router.post("/reset-password", async (req, res) => {
     }
 
     await PasswordResetOtp.deleteOne({ email: normalizedEmail });
+    logInfo("Password reset successful", {
+      email: normalizedEmail,
+      userId: user._id,
+    });
 
     return res.status(200).json({
       message: "Password reset successful",
     });
   } catch (error) {
+    logError("Password reset failed unexpectedly", {
+      error: error.message,
+      stack: error.stack,
+      body: req.body,
+    });
     return res.status(500).json({
       message: "Unable to reset password",
     });

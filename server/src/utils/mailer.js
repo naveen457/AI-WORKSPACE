@@ -1,53 +1,107 @@
-const nodemailer = require("nodemailer");
-
-function getMailTransporter() {
-  const port = Number(process.env.SMTP_PORT || 587);
-
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port,
-    secure: process.env.SMTP_SECURE === "true" || port === 465,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  });
-}
+const axios = require("axios");
+const { logInfo, logError } = require("./logger");
 
 function assertMailConfig() {
-  const requiredKeys = ["SMTP_HOST", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"];
-  const missingKeys = requiredKeys.filter((key) => !process.env[key]);
+  const required = ["SMTP_PASS", "SMTP_USER"];
 
-  if (missingKeys.length > 0) {
-    throw new Error(`Missing email config: ${missingKeys.join(", ")}`);
+  const missing = required.filter((k) => !process.env[k]);
+
+  if (missing.length) {
+    throw new Error(`Missing environment variables: ${missing.join(", ")}`);
   }
 }
 
 async function sendOtpEmail({ to, otp, purpose = "email verification" }) {
   assertMailConfig();
 
-  const transporter = getMailTransporter();
   const isPasswordReset = purpose === "password reset";
-  const title = isPasswordReset
-    ? "ASTRIX password reset"
-    : "ASTRIX email verification";
 
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM,
-    to,
-    subject: isPasswordReset
-      ? "Your ASTRIX password reset code"
-      : "Your ASTRIX verification code",
-    text: `Your ASTRIX ${purpose} code is ${otp}. It expires in 10 minutes.`,
-    html: `
-      <div style="font-family: Arial, sans-serif; line-height: 1.5;">
-        <h2>${title}</h2>
-        <p>Your verification code is:</p>
-        <p style="font-size: 24px; font-weight: 700; letter-spacing: 4px;">${otp}</p>
-        <p>This code expires in 10 minutes.</p>
-      </div>
-    `,
-  });
+  const subject = isPasswordReset
+    ? "Your ASTRIX Password Reset Code"
+    : "Your ASTRIX Verification Code";
+
+  const title = isPasswordReset ? "Password Reset" : "Email Verification";
+
+  const html = `
+  <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto">
+      <h2>ASTRIX ${title}</h2>
+
+      <p>Your verification code is:</p>
+
+      <h1 style="
+          color:#2563eb;
+          letter-spacing:6px;
+          text-align:center;
+      ">
+          ${otp}
+      </h1>
+
+      <p>
+          This code expires in
+          <strong>10 minutes</strong>.
+      </p>
+
+      <hr>
+
+      <p style="font-size:13px;color:#777">
+          If you didn't request this code,
+          you can safely ignore this email.
+      </p>
+  </div>
+  `;
+
+  try {
+    logInfo("Sending OTP through Brevo API", {
+      to,
+      purpose,
+    });
+
+    const { data } = await axios.post(
+      "https://api.brevo.com/v3/smtp/email",
+      {
+        sender: {
+          name: "ASTRIX",
+          email: process.env.SMTP_USER,
+        },
+
+        to: [
+          {
+            email: to,
+          },
+        ],
+
+        subject,
+
+        htmlContent: html,
+
+        textContent: `Your OTP is ${otp}. It expires in 10 minutes.`,
+      },
+      {
+        headers: {
+          accept: "application/json",
+          "content-type": "application/json",
+          "api-key": process.env.SMTP_PASS,
+        },
+      },
+    );
+
+    logInfo("OTP Email Sent", data);
+
+    return {
+      messageId: data.messageId,
+      accepted: [to],
+      rejected: [],
+      response: "OK",
+    };
+  } catch (err) {
+    logError("Brevo API Error", {
+      status: err.response?.status,
+      data: err.response?.data,
+      message: err.message,
+    });
+
+    throw err;
+  }
 }
 
 module.exports = {

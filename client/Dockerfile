@@ -1,4 +1,4 @@
-FROM node:24-alpine AS builder
+FROM node:24-slim AS builder
 
 WORKDIR /Astrix/frontend
 
@@ -11,7 +11,7 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM node:24-alpine
+FROM node:24-slim
 
 WORKDIR /Astrix/frontend
 ENV NODE_ENV=production

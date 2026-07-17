@@ -1,6 +1,7 @@
 const bcrypt = require("bcrypt");
 
 const User = require("../models/User.js");
+const { logInfo, logError } = require("../utils/logger.js");
 const {
   OTP_EXPIRY_MS,
   OTP_MAX_FAILED_ATTEMPTS,
@@ -34,7 +35,18 @@ async function sendOtp(req, res) {
   try {
     const phoneNumber = normalizePhoneNumber(req.body.phoneNumber);
 
+    logInfo("Phone OTP send request received", {
+      authId: req.auth?.id,
+      providedPhoneNumber: req.body.phoneNumber,
+      normalizedPhoneNumber: phoneNumber,
+    });
+
     if (!phoneNumber) {
+      logWarn("Invalid phone number for OTP request", {
+        authId: req.auth?.id,
+        providedPhoneNumber: req.body.phoneNumber,
+      });
+
       return res.status(400).json({
         message: "Enter a valid phone number with country code",
       });
@@ -43,12 +55,21 @@ async function sendOtp(req, res) {
     const user = await User.findById(req.auth.id);
 
     if (!user) {
+      logWarn("Phone OTP request failed because user not found", {
+        authId: req.auth?.id,
+      });
+
       return res.status(404).json({
         message: "User not found",
       });
     }
 
     if (user.phoneNumber === phoneNumber && user.isPhoneVerified) {
+      logInfo("Phone OTP request skipped because number already verified", {
+        authId: req.auth?.id,
+        phoneNumber,
+      });
+
       return res.status(200).json({
         message: "Phone number is already verified",
         alreadyVerified: true,
@@ -60,6 +81,12 @@ async function sendOtp(req, res) {
     const sendLimit = getSendLimit(user, now);
 
     if (!sendLimit.allowed) {
+      logWarn("Phone OTP send limit reached", {
+        authId: req.auth?.id,
+        phoneNumber,
+        retryAfterSeconds: sendLimit.retryAfterSeconds,
+      });
+
       return res.status(429).json({
         message: sendLimit.message,
         retryAfterSeconds: sendLimit.retryAfterSeconds,
@@ -69,6 +96,12 @@ async function sendOtp(req, res) {
     const otp = createPhoneOtp();
     const otpHash = await bcrypt.hash(otp, BCRYPT_SALT_ROUNDS);
     const { resendCount, windowStartAt } = getOtpWindowState(user, now);
+
+    logInfo("Sending phone OTP through provider", {
+      authId: req.auth?.id,
+      phoneNumber,
+      provider: process.env.PHONE_OTP_PROVIDER || "development-console",
+    });
 
     const providerResponse = await sendPhoneOtp({
       phoneNumber,
@@ -85,6 +118,13 @@ async function sendOtp(req, res) {
     user.phoneOtpFailedAttempts = 0;
 
     await user.save();
+
+    logInfo("Phone OTP persisted successfully", {
+      authId: req.auth?.id,
+      phoneNumber,
+      expiresInSeconds: Math.floor(OTP_EXPIRY_MS / 1000),
+      provider: providerResponse?.provider,
+    });
 
     const responseBody = {
       message: "OTP sent to phone number",
@@ -103,7 +143,7 @@ async function sendOtp(req, res) {
 
     return res.status(200).json(responseBody);
   } catch (error) {
-    console.error("sendOtp error", {
+    logError("sendOtp error", {
       error: error.message,
       stack: error.stack,
       body: req.body,
@@ -122,13 +162,31 @@ async function verifyOtp(req, res) {
     const phoneNumber = normalizePhoneNumber(req.body.phoneNumber);
     const otp = req.body.otp?.trim();
 
+    logInfo("Phone OTP verification request received", {
+      authId: req.auth?.id,
+      providedPhoneNumber: req.body.phoneNumber,
+      normalizedPhoneNumber: phoneNumber,
+      otpLength: otp?.length,
+    });
+
     if (!phoneNumber || !otp) {
+      logWarn("Phone OTP verification request missing inputs", {
+        authId: req.auth?.id,
+        phoneNumber,
+        otpLength: otp?.length,
+      });
+
       return res.status(400).json({
         message: "Phone number and OTP are required",
       });
     }
 
     if (!/^[0-9]{6}$/.test(otp)) {
+      logWarn("Phone OTP verification request had invalid OTP format", {
+        authId: req.auth?.id,
+        phoneNumber,
+      });
+
       return res.status(400).json({
         message: "Enter the 6-digit OTP",
       });
@@ -137,18 +195,33 @@ async function verifyOtp(req, res) {
     const user = await User.findById(req.auth.id);
 
     if (!user) {
+      logWarn("Phone OTP verification failed because user not found", {
+        authId: req.auth?.id,
+      });
+
       return res.status(404).json({
         message: "User not found",
       });
     }
 
     if (user.phoneNumber !== phoneNumber) {
+      logWarn("Phone OTP verification mismatch for phone number", {
+        authId: req.auth?.id,
+        storedPhoneNumber: user.phoneNumber,
+        requestedPhoneNumber: phoneNumber,
+      });
+
       return res.status(400).json({
         message: "Request a new OTP for this phone number",
       });
     }
 
     if (user.isPhoneVerified) {
+      logInfo("Phone OTP verification skipped because already verified", {
+        authId: req.auth?.id,
+        phoneNumber,
+      });
+
       return res.status(200).json({
         message: "Phone number already verified",
         user: getPublicUser(user),
@@ -156,6 +229,11 @@ async function verifyOtp(req, res) {
     }
 
     if (!user.phoneOtpHash || !user.phoneOtpExpiry) {
+      logWarn("Phone OTP verification attempted before OTP was requested", {
+        authId: req.auth?.id,
+        phoneNumber,
+      });
+
       return res.status(400).json({
         message: "Request a phone OTP first",
       });
@@ -166,12 +244,26 @@ async function verifyOtp(req, res) {
       user.phoneOtpExpiry = null;
       await user.save();
 
+      logWarn("Phone OTP verification failed because OTP expired", {
+        authId: req.auth?.id,
+        phoneNumber,
+      });
+
       return res.status(400).json({
         message: "OTP has expired",
       });
     }
 
     if ((user.phoneOtpFailedAttempts || 0) >= OTP_MAX_FAILED_ATTEMPTS) {
+      logWarn(
+        "Phone OTP verification blocked after too many invalid attempts",
+        {
+          authId: req.auth?.id,
+          phoneNumber,
+          failedAttempts: user.phoneOtpFailedAttempts,
+        },
+      );
+
       return res.status(429).json({
         message: "Too many invalid attempts. Please request a new OTP.",
       });
@@ -182,6 +274,12 @@ async function verifyOtp(req, res) {
     if (!isOtpValid) {
       user.phoneOtpFailedAttempts = (user.phoneOtpFailedAttempts || 0) + 1;
       await user.save();
+
+      logWarn("Phone OTP verification failed with invalid code", {
+        authId: req.auth?.id,
+        phoneNumber,
+        failedAttempts: user.phoneOtpFailedAttempts,
+      });
 
       return res.status(400).json({
         message: "Invalid OTP",
@@ -199,12 +297,17 @@ async function verifyOtp(req, res) {
 
     await user.save();
 
+    logInfo("Phone OTP verified successfully", {
+      authId: req.auth?.id,
+      phoneNumber,
+    });
+
     return res.status(200).json({
       message: "Phone number verified successfully",
       user: getPublicUser(user),
     });
   } catch (error) {
-    console.error("verifyOtp error", {
+    logError("verifyOtp error", {
       error: error.message,
       stack: error.stack,
       body: req.body,
