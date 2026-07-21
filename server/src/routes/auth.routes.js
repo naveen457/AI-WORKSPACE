@@ -184,7 +184,7 @@ router.post("/request-email-otp", async (req, res) => {
       });
     } catch (error) {
       await EmailOtp.deleteOne({ email: normalizedEmail });
-      logError("Email OTP request failed during SMTP send", {
+      logError("Email OTP request failed during email send", {
         email: normalizedEmail,
         error: error.message,
         stack: error.stack,
@@ -192,7 +192,7 @@ router.post("/request-email-otp", async (req, res) => {
 
       return res.status(500).json({
         message:
-          "Unable to send OTP email. Please check email service configuration.",
+          "Unable to send OTP email. Please check Resend configuration.",
       });
     }
 
@@ -585,7 +585,7 @@ router.post("/request-password-reset-otp", async (req, res) => {
 
       return res.status(500).json({
         message:
-          "Unable to send password reset OTP. Please check email service configuration.",
+          "Unable to send password reset OTP. Please check Resend configuration.",
       });
     }
 

@@ -1,8 +1,8 @@
-const axios = require("axios");
+const { Resend } = require("resend");
 const { logInfo, logError } = require("./logger");
 
 function assertMailConfig() {
-  const required = ["SMTP_PASS", "SMTP_USER"];
+  const required = ["RESEND_API_KEY"];
 
   const missing = required.filter((k) => !process.env[k]);
 
@@ -11,9 +11,18 @@ function assertMailConfig() {
   }
 }
 
+function getMailAddresses() {
+  return {
+    from: process.env.RESEND_FROM || "Astrix <noreply@astrix-app.me>",
+    replyTo: process.env.RESEND_REPLY_TO || "support@astrix-app.me",
+  };
+}
+
 async function sendOtpEmail({ to, otp, purpose = "email verification" }) {
   assertMailConfig();
 
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const { from, replyTo } = getMailAddresses();
   const isPasswordReset = purpose === "password reset";
 
   const subject = isPasswordReset
@@ -51,52 +60,40 @@ async function sendOtpEmail({ to, otp, purpose = "email verification" }) {
   `;
 
   try {
-    logInfo("Sending OTP through Brevo API", {
+    logInfo("Sending OTP through Resend API", {
       to,
       purpose,
     });
 
-    const { data } = await axios.post(
-      "https://api.brevo.com/v3/smtp/email",
-      {
-        sender: {
-          name: "ASTRIX",
-          email: process.env.SMTP_USER,
-        },
+    const { data, error } = await resend.emails.send({
+      from,
+      replyTo,
+      to,
+      subject,
+      html,
+      text: `Your OTP is ${otp}. It expires in 10 minutes.`,
+    });
 
-        to: [
-          {
-            email: to,
-          },
-        ],
+    if (error) {
+      throw error;
+    }
 
-        subject,
-
-        htmlContent: html,
-
-        textContent: `Your OTP is ${otp}. It expires in 10 minutes.`,
-      },
-      {
-        headers: {
-          accept: "application/json",
-          "content-type": "application/json",
-          "api-key": process.env.SMTP_PASS,
-        },
-      },
-    );
-
-    logInfo("OTP Email Sent", data);
+    logInfo("OTP email sent through Resend", {
+      id: data?.id,
+      to,
+      purpose,
+    });
 
     return {
-      messageId: data.messageId,
+      messageId: data?.id,
       accepted: [to],
       rejected: [],
       response: "OK",
     };
   } catch (err) {
-    logError("Brevo API Error", {
-      status: err.response?.status,
-      data: err.response?.data,
+    logError("Resend API Error", {
+      status: err.statusCode || err.status,
+      name: err.name,
       message: err.message,
     });
 
