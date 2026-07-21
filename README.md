@@ -1,63 +1,47 @@
 # ASTRIX
 
-AI Workspace Platform
+AI Workspace authentication platform with:
+- Node.js/Express backend (`/server`)
+- React + Vite frontend (`/client`)
+- Email OTP, phone OTP, Google OAuth, and GitHub OAuth
 
-## Quick Links
+## Setup Docs
 
-- 🚀 [Local Development Setup](./LOCAL_SETUP.md)
-- 📚 [Project Structure](#project-structure)
+- [Local setup](./LOCAL_SETUP.md)
+- [Server setup](./server/SETUP.md)
+- [Client setup](./client/README.md)
 
-## Getting Started
-
-For local development with MongoDB and local credentials, see [LOCAL_SETUP.md](./LOCAL_SETUP.md)
-
-### Quick Start
+## Quick Start
 
 ```bash
-# 1. Install dependencies
+# Install dependencies
 cd server && npm install
 cd ../client && npm install
 
-# 2. Configure environment variables
-# See LOCAL_SETUP.md for detailed instructions
+# Configure environment files
+cp server/.env.example server/.env
+# create client/.env.local and set VITE_API_URL=http://localhost:5000
 
-# 3. Start development servers
-cd server && npm run dev  # Terminal 1
-cd client && npm run dev  # Terminal 2
+# Run apps
+cd server && npm run dev
+cd ../client && npm run dev
 ```
 
-## Project Structure
+## Domain and Email Notes (astrix-app.me)
 
-```
-.
-├── server/                 # Node.js/Express backend
-│   ├── src/
-│   │   ├── config/        # Database and auth config
-│   │   ├── routes/        # API routes
-│   │   ├── models/        # Database models
-│   │   ├── controllers/   # Route handlers
-│   │   └── middleware/    # Express middleware
-│   ├── .env              # Local environment variables
-│   ├── .env.example      # Environment template
-│   └── package.json
-│
-├── client/                 # React frontend
-│   ├── src/
-│   │   ├── components/    # React components
-│   │   ├── pages/         # Page components
-│   │   ├── api/           # API client
-│   │   └── App.jsx
-│   ├── .env.local        # Vite environment variables
-│   └── package.json
-│
-└── LOCAL_SETUP.md         # Setup guide for local development
-```
+The backend mailer defaults are configured for `astrix-app.me`:
+- `RESEND_FROM="Astrix <noreply@astrix-app.me>"`
+- `RESEND_REPLY_TO=support@astrix-app.me`
 
-## Important: Credentials
+For production, set your deployed URLs in `server/.env`:
+- `CLIENT_URL=https://<your-client-domain>`
+- `SERVER_URL=https://<your-api-domain>`
+- OAuth callbacks should match `${SERVER_URL}/auth/google/callback` and `${SERVER_URL}/auth/github/callback`
 
-All environment variables with sensitive data (database passwords, OAuth secrets, etc.) are:
-- Listed in `.env.example` as templates
-- Stored locally in `.env` and `.env.local` (ignored by git)
-- Never committed to the repository
+## Secret Leak Audit
 
-See [LOCAL_SETUP.md](./LOCAL_SETUP.md#security-notes) for security guidelines.
+Repository scan completed for tracked files:
+- No committed live API keys/tokens/private keys were found.
+- Only placeholder values were found in `server/.env.example`.
+
+Keep secrets only in local `.env` files (already gitignored).
