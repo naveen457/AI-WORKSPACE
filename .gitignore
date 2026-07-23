@@ -21,6 +21,7 @@ client/.env
 client/.env.local
 client/.env.*
 !client/.env.example
+.env.example
 
 # Logs
 logs/
