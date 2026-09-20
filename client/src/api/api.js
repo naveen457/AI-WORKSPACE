@@ -9,6 +9,10 @@ const api = axios.create({
   withCredentials: true,
 });
 
+if (process.env.NODE_ENV !== "production") {
+  api.defaults.baseURL = `${API_BASE_URL}/`;
+}
+
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("authToken");
 

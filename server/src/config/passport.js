@@ -3,10 +3,7 @@ const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const GitHubStrategy = require("passport-github2").Strategy;
 const User = require("../models/User.js");
 
-const SERVER_URL = (process.env.SERVER_URL || "http://localhost:5000").replace(
-  /\/+$/,
-  "",
-);
+const SERVER_URL = (process.env.SERVER_URL || "http://localhost:5000").replace(/\/+$/, "");
 const googleClientID = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 const githubClientID = process.env.GITHUB_CLIENT_ID;
