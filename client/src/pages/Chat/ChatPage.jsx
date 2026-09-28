@@ -169,13 +169,16 @@ export default function ChatPage() {
   const { user } = useAuth();
   const [threads, setThreads] = useState([]);
   const [activeThreadId, setActiveThreadId] = useState(generateShaCode);
-  const [messages, setMessages] = useState([]);
+  const [threadMessages, setThreadMessages] = useState({});
+  const [sendingThreads, setSendingThreads] = useState({});
   const [input, setInput] = useState("");
-  const [isSending, setIsSending] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [error, setError] = useState(null);
   const [feedbackState, setFeedbackState] = useState({});
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  const messages = threadMessages[activeThreadId] || [];
+  const isSending = Boolean(sendingThreads[activeThreadId]);
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -203,33 +206,36 @@ export default function ChatPage() {
     if (threadId === activeThreadId) return;
     setActiveThreadId(threadId);
     setError(null);
-    setIsLoadingHistory(true);
 
-    try {
-      const res = await getThreadMessages(threadId);
-      if (res.data?.messages && Array.isArray(res.data.messages)) {
-        const mapped = res.data.messages.map((m, idx) => ({
-          id: `${threadId}_${idx}`,
-          role: m.role || (m.type === "human" ? "user" : "assistant"),
-          content: m.content || "",
-          createdAt: new Date().toISOString(),
-        }));
-        setMessages(mapped);
-      } else {
-        setMessages([]);
+    // If this thread's messages are not cached yet, fetch from backend
+    if (!threadMessages[threadId]) {
+      setIsLoadingHistory(true);
+      try {
+        const res = await getThreadMessages(threadId);
+        if (res.data?.messages && Array.isArray(res.data.messages)) {
+          const mapped = res.data.messages.map((m, idx) => ({
+            id: `${threadId}_${idx}`,
+            role: m.role || (m.type === "human" ? "user" : "assistant"),
+            content: m.content || "",
+            createdAt: new Date().toISOString(),
+          }));
+          setThreadMessages((prev) => ({ ...prev, [threadId]: mapped }));
+        } else {
+          setThreadMessages((prev) => ({ ...prev, [threadId]: [] }));
+        }
+      } catch (err) {
+        console.warn("Failed to load thread messages:", err);
+        setThreadMessages((prev) => ({ ...prev, [threadId]: [] }));
+      } finally {
+        setIsLoadingHistory(false);
       }
-    } catch (err) {
-      console.warn("Failed to load thread messages:", err);
-      setMessages([]);
-    } finally {
-      setIsLoadingHistory(false);
     }
   }
 
   function handleCreateNewThread() {
     const newSha = generateShaCode();
     setActiveThreadId(newSha);
-    setMessages([]);
+    setThreadMessages((prev) => ({ ...prev, [newSha]: [] }));
     setError(null);
     setInput("");
     inputRef.current?.focus();
@@ -247,7 +253,8 @@ export default function ChatPage() {
 
   async function send(messageText) {
     const trimmed = messageText.trim();
-    if (!trimmed || isSending) return;
+    const targetThreadId = activeThreadId;
+    if (!trimmed || sendingThreads[targetThreadId]) return;
 
     const userMessage = {
       id: `usr_${Date.now()}`,
@@ -256,26 +263,29 @@ export default function ChatPage() {
       createdAt: new Date().toISOString(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    setThreadMessages((prev) => ({
+      ...prev,
+      [targetThreadId]: [...(prev[targetThreadId] || []), userMessage],
+    }));
     setInput("");
-    setIsSending(true);
+    setSendingThreads((prev) => ({ ...prev, [targetThreadId]: true }));
     setError(null);
 
     // Update catalog snippet
     setThreads((prev) => {
-      const existing = prev.find((t) => t.thread_id === activeThreadId);
+      const existing = prev.find((t) => t.thread_id === targetThreadId);
       const updated = {
-        thread_id: activeThreadId,
+        thread_id: targetThreadId,
         message_count: (existing?.message_count || 0) + 1,
         snippet: trimmed.slice(0, 60),
       };
-      return [updated, ...prev.filter((t) => t.thread_id !== activeThreadId)];
+      return [updated, ...prev.filter((t) => t.thread_id !== targetThreadId)];
     });
 
     try {
       const response = await sendChatMessage({
         message: trimmed,
-        conversationId: activeThreadId,
+        conversationId: targetThreadId,
       });
 
       const assistantMessage = {
@@ -288,14 +298,23 @@ export default function ChatPage() {
         toolsExecuted: response.data.toolsExecuted,
       };
 
-      setMessages((prev) => [...prev, assistantMessage]);
+      setThreadMessages((prev) => ({
+        ...prev,
+        [targetThreadId]: [...(prev[targetThreadId] || []), assistantMessage],
+      }));
     } catch (err) {
       const message =
         err.response?.data?.message ||
         "Unable to connect to the AI service. Please make sure RL_Based_AMAS is running.";
-      setError(message);
+      if (activeThreadId === targetThreadId) {
+        setError(message);
+      }
     } finally {
-      setIsSending(false);
+      setSendingThreads((prev) => {
+        const next = { ...prev };
+        delete next[targetThreadId];
+        return next;
+      });
     }
   }
 
