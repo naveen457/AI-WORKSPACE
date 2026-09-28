@@ -53,12 +53,24 @@ GITHUB_CLIENT_SECRET=your_github_client_secret
 
 # Use your backend origin plus /auth/github/callback.
 GITHUB_CALLBACK_URL=your_backend_origin/auth/github/callback
+
+# RL-based AMAS backend service URL
+RL_LLM_API_URL=http://localhost:8000
 ```
 
 Start the backend:
 
 ```bash
 npm run dev
+```
+
+### RL-based AMAS Service (Python)
+
+To run the adaptive multi-agent RL backend:
+
+```bash
+cd ../RL_Based_AMAS
+.\.venv\Scripts\python.exe -m uvicorn app.server:app --host 127.0.0.1 --port 8000
 ```
 
 Backend health check:

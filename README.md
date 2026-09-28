@@ -74,6 +74,7 @@ For the complete setup checklist, see [LOCAL_SETUP.md](./LOCAL_SETUP.md).
 
 ## Required Environment
 
+
 Backend variables live in `server/.env` locally and in the backend service environment on Render:
 
 - `MONGO_URI`
