@@ -1,4 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 function getInitials(user) {
   const first = user?.firstName?.trim()?.[0] || "";
@@ -28,13 +29,19 @@ function ProfileAvatar({ user, className = "h-10 w-10", textClass = "text-sm" })
   );
 }
 
-function AppLayout({ user, onLogout, children }) {
+function AppLayout({ user: propUser, onLogout: propLogout, children }) {
+  const auth = useAuth();
+  const user = propUser || auth.user;
   const location = useLocation();
   const navigate = useNavigate();
 
   function handleLogout() {
-    onLogout();
-    navigate("/auth", { replace: true });
+    if (propLogout) {
+      propLogout();
+    } else {
+      auth.logout();
+    }
+    navigate("/", { replace: true });
   }
 
   const isActive = (path) => location.pathname === path;
@@ -43,7 +50,7 @@ function AppLayout({ user, onLogout, children }) {
     <div className="min-h-screen bg-white text-gray-900 dark:bg-neutral-950 dark:text-neutral-100">
       <header className="border-b border-gray-200 bg-white/95 dark:border-neutral-800 dark:bg-neutral-950/95">
         <div className="flex min-h-16 w-full items-center gap-4 px-5 lg:px-10">
-          <Link to="/chat" className="flex items-center gap-2 text-[#e89a63]">
+          <Link to="/" className="flex items-center gap-2 text-[#e89a63]">
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#e89a63]">
               <span className="block h-4 w-2 -skew-x-12 rounded-sm bg-white" />
             </span>
@@ -52,25 +59,39 @@ function AppLayout({ user, onLogout, children }) {
 
           <nav className="hidden items-center gap-6 text-sm font-semibold text-gray-700 dark:text-neutral-300 md:flex">
             <Link
-              to="/chat"
+              to="/"
               className={`transition ${
-                isActive("/chat")
+                isActive("/")
                   ? "text-[#d47f4f]"
                   : "hover:text-[#d47f4f]"
               }`}
             >
-              Chat
+              Home
             </Link>
-            <Link
-              to="/visualizer"
-              className={`transition ${
-                isActive("/visualizer")
-                  ? "text-[#d47f4f]"
-                  : "hover:text-[#d47f4f]"
-              }`}
-            >
-              Visualizer
-            </Link>
+            {user && (
+              <>
+                <Link
+                  to="/chat"
+                  className={`transition ${
+                    isActive("/chat")
+                      ? "text-[#d47f4f]"
+                      : "hover:text-[#d47f4f]"
+                  }`}
+                >
+                  Chat
+                </Link>
+                <Link
+                  to="/visualizer"
+                  className={`transition ${
+                    isActive("/visualizer")
+                      ? "text-[#d47f4f]"
+                      : "hover:text-[#d47f4f]"
+                  }`}
+                >
+                  Visualizer
+                </Link>
+              </>
+            )}
           </nav>
 
           <div className="ml-auto flex items-center gap-3">

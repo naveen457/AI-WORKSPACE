@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 import LoginForm from "../components/LoginForm";
 import SignupForm from "../components/SignupForm";
@@ -9,6 +10,7 @@ import SignupForm from "../components/SignupForm";
 function AuthPage() {
 
     const navigate = useNavigate();
+    const { login } = useAuth();
     const [searchParams, setSearchParams] = useSearchParams();
     const [isLogin, setIsLogin] = useState(true);
 
@@ -16,11 +18,11 @@ function AuthPage() {
         const token = searchParams.get("token");
 
         if (token) {
-            localStorage.setItem("authToken", token);
+            login(token, null);
             setSearchParams({}, { replace: true });
             navigate("/", { replace: true });
         }
-    }, [navigate, searchParams, setSearchParams]);
+    }, [navigate, searchParams, setSearchParams, login]);
 
     return (
 

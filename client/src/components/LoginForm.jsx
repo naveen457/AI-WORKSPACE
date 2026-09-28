@@ -2,9 +2,11 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/api";
 import OAuthButtons from "./OAuthButtons";
+import { useAuth } from "../context/AuthContext";
 
 function LoginForm() {
     const navigate = useNavigate();
+    const { login } = useAuth();
 
     const [formData, setFormData] = useState({
         email: "",
@@ -96,11 +98,7 @@ function LoginForm() {
             });
 
             if (response.data.token) {
-                localStorage.setItem("authToken", response.data.token);
-            }
-
-            if (response.data.user) {
-                localStorage.setItem("authUser", JSON.stringify(response.data.user));
+                login(response.data.token, response.data.user || null);
             }
 
             setStatusMessage("Login successful. Redirecting...");

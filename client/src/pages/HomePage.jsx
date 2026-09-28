@@ -1,15 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import api from "../api/api";
 import heroImage from "../assets/hero.png";
-
-function getStoredUser() {
-    try {
-        return JSON.parse(localStorage.getItem("authUser")) || null;
-    } catch {
-        return null;
-    }
-}
+import { useAuth } from "../context/AuthContext";
 
 function getInitials(user) {
     const first = user?.firstName?.trim()?.[0] || "";
@@ -49,7 +41,7 @@ function getStoredTheme() {
 
 function HomePage() {
     const navigate = useNavigate();
-    const [user, setUser] = useState(getStoredUser);
+    const { user, logout } = useAuth();
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [theme, setTheme] = useState(getStoredTheme);
 
@@ -58,30 +50,8 @@ function HomePage() {
         localStorage.setItem("theme", theme);
     }, [theme]);
 
-    useEffect(() => {
-        const token = localStorage.getItem("authToken");
-
-        if (!token) return;
-
-        async function loadUser() {
-            try {
-                const response = await api.get("/auth/me");
-                setUser(response.data.user);
-                localStorage.setItem("authUser", JSON.stringify(response.data.user));
-            } catch {
-                localStorage.removeItem("authToken");
-                localStorage.removeItem("authUser");
-                setUser(null);
-            }
-        }
-
-        loadUser();
-    }, []);
-
     function handleLogout() {
-        localStorage.removeItem("authToken");
-        localStorage.removeItem("authUser");
-        setUser(null);
+        logout();
         setIsProfileOpen(false);
     }
 
@@ -102,6 +72,12 @@ function HomePage() {
 
                     <nav className="hidden items-center gap-6 text-sm font-semibold text-gray-700 dark:text-neutral-300 md:flex">
                         <Link to="/" className="text-[#d47f4f]">Home</Link>
+                        {user && (
+                            <>
+                                <Link to="/chat" className="hover:text-[#d47f4f]">Chat</Link>
+                                <Link to="/visualizer" className="hover:text-[#d47f4f]">Visualizer</Link>
+                            </>
+                        )}
                         <a href="#products" className="hover:text-[#d47f4f]">Products</a>
                     </nav>
 
@@ -210,13 +186,22 @@ function HomePage() {
                             {
                                 user
                                     ? (
-                                        <button
-                                            type="button"
-                                            onClick={() => navigate("/edit-profile")}
-                                            className="rounded bg-[#eaa06d] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#df925e]"
-                                        >
-                                            Edit Profile
-                                        </button>
+                                        <>
+                                            <button
+                                                type="button"
+                                                onClick={() => navigate("/chat")}
+                                                className="rounded bg-[#eaa06d] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#df925e]"
+                                            >
+                                                Open Chat
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => navigate("/edit-profile")}
+                                                className="rounded border border-gray-300 px-6 py-3 text-sm font-bold text-gray-800 transition hover:border-[#e89a63] hover:text-[#d47f4f] dark:border-neutral-700 dark:text-neutral-100"
+                                            >
+                                                Edit Profile
+                                            </button>
+                                        </>
                                     )
                                     : (
                                         <Link

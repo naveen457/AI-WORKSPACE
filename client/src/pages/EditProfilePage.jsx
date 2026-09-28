@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../api/api";
+import { useAuth } from "../context/AuthContext";
 
 const SETTINGS_SECTIONS = [
     {
@@ -60,6 +61,7 @@ function validatePassword(password) {
 
 function EditProfilePage() {
     const navigate = useNavigate();
+    const { updateUser } = useAuth();
     const [activeSection, setActiveSection] = useState("personal");
     const [user, setUser] = useState(getStoredUser);
     const [personalForm, setPersonalForm] = useState(() => createPersonalForm(user));
@@ -133,7 +135,7 @@ function EditProfilePage() {
         setUser(nextUser);
         setPersonalForm(createPersonalForm(nextUser));
         setPhotoDraft(nextUser.profilePhoto || "");
-        localStorage.setItem("authUser", JSON.stringify(nextUser));
+        updateUser(nextUser);
     }
 
     async function savePersonalDetails() {
