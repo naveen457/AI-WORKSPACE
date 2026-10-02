@@ -9,6 +9,16 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      frontend_tag:
+        description: 'Frontend Docker image tag override (optional - defaults to version in client/Dockerfile)'
+        required: false
+        default: ''
+      backend_tag:
+        description: 'Backend Docker image tag override (optional - defaults to version in server/Dockerfile)'
+        required: false
+        default: ''
 
 env:
   DOCKERHUB_USERNAME: naveenchowdary577
@@ -25,6 +35,42 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Extract frontend version from client/Dockerfile
+        id: extract_frontend_version
+        run: |
+          OVERRIDE="${{ github.event.inputs.frontend_tag }}"
+          if [ -n "$OVERRIDE" ]; then
+            VERSION="$OVERRIDE"
+          else
+            VERSION=$(grep -E '^\s*LABEL\s+version=' client/Dockerfile | head -n1 | sed -E 's/.*version="?([^"]*)"?.*/\1/' | tr -d '\r\n ')
+            if [ -z "$VERSION" ] || [ "$VERSION" = '${VERSION}' ]; then
+              VERSION=$(grep -E '^\s*ARG\s+VERSION=' client/Dockerfile | head -n1 | cut -d'=' -f2 | tr -d '\r\n "')
+            fi
+          fi
+          if [ -z "$VERSION" ]; then
+            VERSION="latest"
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Determined frontend image version: ${VERSION}"
+
+      - name: Extract backend version from server/Dockerfile
+        id: extract_backend_version
+        run: |
+          OVERRIDE="${{ github.event.inputs.backend_tag }}"
+          if [ -n "$OVERRIDE" ]; then
+            VERSION="$OVERRIDE"
+          else
+            VERSION=$(grep -E '^\s*LABEL\s+version=' server/Dockerfile | head -n1 | sed -E 's/.*version="?([^"]*)"?.*/\1/' | tr -d '\r\n ')
+            if [ -z "$VERSION" ] || [ "$VERSION" = '${VERSION}' ]; then
+              VERSION=$(grep -E '^\s*ARG\s+VERSION=' server/Dockerfile | head -n1 | cut -d'=' -f2 | tr -d '\r\n "')
+            fi
+          fi
+          if [ -z "$VERSION" ]; then
+            VERSION="latest"
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Determined backend image version: ${VERSION}"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -43,7 +89,7 @@ jobs:
           images: ${{ env.FRONTEND_IMAGE }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
-            type=sha
+            type=raw,value=${{ steps.extract_frontend_version.outputs.version }},enable=${{ steps.extract_frontend_version.outputs.version != '' && steps.extract_frontend_version.outputs.version != 'latest' }}
             type=ref,event=tag
 
       - name: Extract Docker metadata for backend
@@ -53,7 +99,7 @@ jobs:
           images: ${{ env.BACKEND_IMAGE }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
-            type=sha
+            type=raw,value=${{ steps.extract_backend_version.outputs.version }},enable=${{ steps.extract_backend_version.outputs.version != '' && steps.extract_backend_version.outputs.version != 'latest' }}
             type=ref,event=tag
 
       - name: Build and push frontend image
@@ -65,6 +111,7 @@ jobs:
           tags: ${{ steps.frontend-metadata.outputs.tags }}
           labels: ${{ steps.frontend-metadata.outputs.labels }}
           build-args: |
+            VERSION=${{ steps.extract_frontend_version.outputs.version }}
             VITE_API_URL=${{ vars.VITE_API_URL || 'https://api.astrix-app.me' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -77,6 +124,8 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.backend-metadata.outputs.tags }}
           labels: ${{ steps.backend-metadata.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.extract_backend_version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
       
