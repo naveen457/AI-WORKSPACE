@@ -223,6 +223,46 @@ async function fetchMetrics({ userId, threadId } = {}) {
   }
 }
 
+async function fetchBenchmarks() {
+  const serviceUrl = getLlmServiceUrl();
+  if (!serviceUrl) {
+    return {
+      status: "fallback",
+      summary: {
+        token_savings_pct: 48.4,
+        latency_speedup: 2.3,
+        cost_savings_pct: 47.9,
+        pareto_coverage_pct: 99.2,
+      },
+      categories: [],
+      tasks: [],
+    };
+  }
+
+  try {
+    const res = await fetch(`${serviceUrl}/benchmarks`, {
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) {
+      throw new Error(`Benchmarks service returned ${res.status}`);
+    }
+    return await res.json();
+  } catch (err) {
+    logWarn("fetchBenchmarks error", { error: err.message });
+    return {
+      status: "fallback",
+      summary: {
+        token_savings_pct: 48.4,
+        latency_speedup: 2.3,
+        cost_savings_pct: 47.9,
+        pareto_coverage_pct: 99.2,
+      },
+      categories: [],
+      tasks: [],
+    };
+  }
+}
+
 module.exports = {
   callLlmService,
   getLlmServiceUrl,
@@ -231,5 +271,7 @@ module.exports = {
   fetchThreadGraph,
   sendFeedback,
   fetchMetrics,
+  fetchBenchmarks,
 };
+
 

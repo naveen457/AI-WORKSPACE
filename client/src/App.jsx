@@ -6,6 +6,7 @@ import OAuthCompletePage from "./pages/OAuthCompletePage";
 import AppLayout from "./components/AppLayout";
 import ChatPage from "./pages/Chat/ChatPage";
 import VisualizerPage from "./pages/Visualizer/VisualizerPage";
+import BenchmarksPage from "./pages/Benchmarks/BenchmarksPage";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 
 function ProtectedRoute({ children }) {
@@ -56,6 +57,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <AppLayout>
               <VisualizerPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/benchmarks"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <BenchmarksPage />
             </AppLayout>
           </ProtectedRoute>
         }

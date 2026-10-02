@@ -90,6 +90,16 @@ function AppLayout({ user: propUser, onLogout: propLogout, children }) {
                 >
                   Visualizer
                 </Link>
+                <Link
+                  to="/benchmarks"
+                  className={`transition ${
+                    isActive("/benchmarks")
+                      ? "text-[#d47f4f]"
+                      : "hover:text-[#d47f4f]"
+                  }`}
+                >
+                  Benchmarks
+                </Link>
               </>
             )}
           </nav>

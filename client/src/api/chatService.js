@@ -35,6 +35,10 @@ export function getUserMetrics(threadId) {
   return api.get("/chat/metrics", config);
 }
 
+export function getBenchmarks() {
+  return api.get("/chat/benchmarks");
+}
+
 export default {
   sendChatMessage,
   getChatThreads,
@@ -42,5 +46,7 @@ export default {
   getThreadGraph,
   sendChatFeedback,
   getUserMetrics,
+  getBenchmarks,
 };
+
 

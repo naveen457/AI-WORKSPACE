@@ -76,6 +76,7 @@ function HomePage() {
                             <>
                                 <Link to="/chat" className="hover:text-[#d47f4f]">Chat</Link>
                                 <Link to="/visualizer" className="hover:text-[#d47f4f]">Visualizer</Link>
+                                <Link to="/benchmarks" className="hover:text-[#d47f4f]">Benchmarks</Link>
                             </>
                         )}
                         <a href="#products" className="hover:text-[#d47f4f]">Products</a>

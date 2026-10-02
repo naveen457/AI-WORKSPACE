@@ -6,6 +6,7 @@ const {
   fetchThreadGraph,
   sendFeedback,
   fetchMetrics,
+  fetchBenchmarks,
 } = require("../services/llmService.js");
 
 function getPublicUser(user) {
@@ -207,6 +208,22 @@ async function getUserMetrics(req, res) {
   }
 }
 
+async function getBenchmarks(req, res) {
+  try {
+    const data = await fetchBenchmarks();
+    return res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    logError("getBenchmarks error", { error: error.message });
+    return res.status(500).json({
+      success: false,
+      message: "Unable to fetch benchmarks",
+    });
+  }
+}
+
 module.exports = {
   sendMessage,
   getThreads,
@@ -214,5 +231,7 @@ module.exports = {
   getThreadGraph,
   submitFeedback,
   getUserMetrics,
+  getBenchmarks,
 };
+
 
