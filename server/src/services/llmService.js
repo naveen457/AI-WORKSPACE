@@ -156,6 +156,73 @@ async function fetchThreadGraph({ threadId, userId } = {}) {
   }
 }
 
+async function fetchMetrics({ userId, threadId } = {}) {
+  const serviceUrl = getLlmServiceUrl();
+  if (!serviceUrl || !userId) {
+    return {
+      user_id: userId || null,
+      summary: {
+        total_runs: 0,
+        total_tokens: 0,
+        total_cost_usd: 0,
+        avg_coverage: 0,
+        avg_net_utility: 0,
+        avg_critical_path: 0,
+        avg_reward: 0,
+      },
+      agent_invocations: {},
+      complexity_breakdown: {},
+      runs: [],
+    };
+  }
+
+  try {
+    const params = new URLSearchParams({ user_id: userId });
+    if (threadId) {
+      params.set("thread_id", threadId);
+    }
+    const url = `${serviceUrl}/metrics?${params.toString()}`;
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) {
+      return {
+        user_id: userId,
+        summary: {
+          total_runs: 0,
+          total_tokens: 0,
+          total_cost_usd: 0,
+          avg_coverage: 0,
+          avg_net_utility: 0,
+          avg_critical_path: 0,
+          avg_reward: 0,
+        },
+        agent_invocations: {},
+        complexity_breakdown: {},
+        runs: [],
+      };
+    }
+    return await res.json();
+  } catch (err) {
+    logWarn("fetchMetrics error", { userId, threadId, error: err.message });
+    return {
+      user_id: userId,
+      summary: {
+        total_runs: 0,
+        total_tokens: 0,
+        total_cost_usd: 0,
+        avg_coverage: 0,
+        avg_net_utility: 0,
+        avg_critical_path: 0,
+        avg_reward: 0,
+      },
+      agent_invocations: {},
+      complexity_breakdown: {},
+      runs: [],
+    };
+  }
+}
+
 module.exports = {
   callLlmService,
   getLlmServiceUrl,
@@ -163,5 +230,6 @@ module.exports = {
   fetchThreadMessages,
   fetchThreadGraph,
   sendFeedback,
+  fetchMetrics,
 };
 

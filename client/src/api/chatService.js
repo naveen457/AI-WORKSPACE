@@ -27,11 +27,20 @@ export function getThreadGraph(threadId) {
   return api.get(`/chat/threads/${encodeURIComponent(threadId)}/graph`);
 }
 
+export function getUserMetrics(threadId) {
+  const config = {};
+  if (threadId) {
+    config.params = { threadId };
+  }
+  return api.get("/chat/metrics", config);
+}
+
 export default {
   sendChatMessage,
   getChatThreads,
   getThreadMessages,
   getThreadGraph,
   sendChatFeedback,
+  getUserMetrics,
 };
 

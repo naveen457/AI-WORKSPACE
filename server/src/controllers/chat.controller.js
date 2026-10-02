@@ -5,6 +5,7 @@ const {
   fetchThreadMessages,
   fetchThreadGraph,
   sendFeedback,
+  fetchMetrics,
 } = require("../services/llmService.js");
 
 function getPublicUser(user) {
@@ -181,11 +182,37 @@ async function getThreadGraph(req, res) {
   }
 }
 
+async function getUserMetrics(req, res) {
+  try {
+    const userId = req.auth?.id || req.auth?._id;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required",
+      });
+    }
+
+    const { threadId } = req.query || {};
+    const data = await fetchMetrics({ userId, threadId });
+    return res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    logError("getUserMetrics error", { error: error.message });
+    return res.status(500).json({
+      success: false,
+      message: "Unable to fetch user metrics",
+    });
+  }
+}
+
 module.exports = {
   sendMessage,
   getThreads,
   getThreadMessages,
   getThreadGraph,
   submitFeedback,
+  getUserMetrics,
 };
 

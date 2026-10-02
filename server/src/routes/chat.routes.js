@@ -8,10 +8,12 @@ const {
   getThreadMessages,
   getThreadGraph,
   submitFeedback,
+  getUserMetrics,
 } = require("../controllers/chat.controller.js");
 
 router.post("/", requireAuth, sendMessage);
 router.get("/threads", requireAuth, getThreads);
+router.get("/metrics", requireAuth, getUserMetrics);
 router.get("/threads/:threadId", requireAuth, getThreadMessages);
 router.get("/threads/:threadId/graph", requireAuth, getThreadGraph);
 router.post("/feedback", requireAuth, submitFeedback);
