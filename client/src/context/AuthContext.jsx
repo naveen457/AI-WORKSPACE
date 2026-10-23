@@ -35,11 +35,17 @@ export function AuthProvider({ children }) {
           localStorage.setItem("authUser", JSON.stringify(response.data.user));
         }
       } catch (err) {
-        console.warn("Session verification failed:", err.message);
-        localStorage.removeItem("authToken");
-        localStorage.removeItem("authUser");
-        setUser(null);
-        setToken(null);
+        console.warn("Session verification check failed:", err.message);
+        if (err.response && err.response.status === 401) {
+          // Explicit token rejection: credentials expired or invalid
+          localStorage.removeItem("authToken");
+          localStorage.removeItem("authUser");
+          setUser(null);
+          setToken(null);
+        } else {
+          // Backend is redeploying, warming up, or temporary network glitch: preserve session
+          console.warn("Server unreachable or redeploying; retaining cached user session.");
+        }
       } finally {
         setLoading(false);
       }

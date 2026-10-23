@@ -187,8 +187,13 @@ export default function ChatPage() {
     async function loadThreadCatalog() {
       try {
         const res = await getChatThreads();
-        if (res.data?.threads && Array.isArray(res.data.threads)) {
+        if (res.data?.threads && Array.isArray(res.data.threads) && res.data.threads.length > 0) {
           setThreads(res.data.threads);
+          // Auto-select and load previous chat messages for the most recent thread
+          const latestThread = res.data.threads[0];
+          if (latestThread?.thread_id) {
+            handleSelectThread(latestThread.thread_id);
+          }
         }
       } catch (err) {
         console.warn("Could not load threads catalog:", err);
@@ -203,12 +208,11 @@ export default function ChatPage() {
   }, [messages, isSending]);
 
   async function handleSelectThread(threadId) {
-    if (threadId === activeThreadId) return;
     setActiveThreadId(threadId);
     setError(null);
 
     // If this thread's messages are not cached yet, fetch from backend
-    if (!threadMessages[threadId]) {
+    if (!threadMessages[threadId] || threadMessages[threadId].length === 0) {
       setIsLoadingHistory(true);
       try {
         const res = await getThreadMessages(threadId);
