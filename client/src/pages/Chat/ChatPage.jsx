@@ -126,16 +126,12 @@ function ChatMessage({ message, onFeedback, feedbackState }) {
 function EmptyChat({ onExample, activeSha }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 text-center px-4 my-auto">
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f7ece7] dark:bg-neutral-800">
-        <svg
-          viewBox="0 0 24 24"
-          className="h-7 w-7 text-[#d47f4f]"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.6"
-        >
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-        </svg>
+      <div className="flex items-center justify-center">
+        <img
+          src="/astrix_logo_pack/svg/astrix-icon-dark.svg"
+          alt="ASTRIX Workspace"
+          className="h-16 w-16 rounded-2xl shadow-lg ring-1 ring-black/5 dark:ring-white/10"
+        />
       </div>
       <div>
         <h2 className="text-lg font-bold text-gray-900 dark:text-neutral-100">

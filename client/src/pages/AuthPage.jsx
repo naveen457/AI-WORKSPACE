@@ -30,9 +30,12 @@ function AuthPage() {
 
             <div className="w-full min-h-screen lg:min-h-0 lg:max-w-5xl flex flex-col items-center justify-center gap-6">
 
-                <h1 className="hidden lg:block text-4xl font-bold text-gray-800 dark:text-neutral-100">
-                    ASTRIX
-                </h1>
+                <div className="hidden lg:flex items-center gap-3">
+                    <img src="/astrix_logo_pack/favicon/favicon.svg" alt="ASTRIX Logo" className="h-10 w-10 rounded-xl shadow-md" />
+                    <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-neutral-100">
+                        ASTRIX
+                    </h1>
+                </div>
 
                 {
                     isLogin

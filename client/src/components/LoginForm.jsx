@@ -195,10 +195,15 @@ function LoginForm() {
     return (
         <div className="flex w-full min-h-screen overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100 dark:from-zinc-950 dark:to-neutral-900 lg:min-h-0 lg:h-[68vh] lg:rounded-lg lg:shadow-2xl">
             <div className="hidden lg:flex w-2/5 bg-gray-300 dark:bg-neutral-800 items-center justify-center">
-                <div className="text-center">
-                    <div className="w-64 h-64 bg-gray-400 dark:bg-neutral-700 rounded-lg flex items-center justify-center">
-                        <span className="text-gray-700 dark:text-neutral-200 text-lg font-semibold">ASTRIX</span>
-                    </div>
+                <div className="flex flex-col items-center justify-center p-8 text-center">
+                    <img
+                        src="/astrix_logo_pack/svg/astrix-icon-dark.svg"
+                        alt="ASTRIX Logo"
+                        className="w-48 h-48 drop-shadow-2xl transition-transform duration-300 hover:scale-105"
+                    />
+                    <span className="mt-4 text-xs font-semibold tracking-widest text-gray-600 dark:text-neutral-400 uppercase">
+                        Adaptive Multi-Agent Workspace
+                    </span>
                 </div>
             </div>
 
@@ -207,12 +212,13 @@ function LoginForm() {
                 className="w-full lg:w-3/5 bg-white dark:bg-neutral-950 px-8 sm:px-12 py-8 flex flex-col gap-5 justify-center overflow-y-auto"
             >
 
-            <div className="flex items-center justify-center gap-2 text-[#e89a63]">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#e89a63]">
-                    <span className="block h-4 w-2 -skew-x-12 rounded-sm bg-white" />
-                </span>
-
-                <span className="text-lg font-semibold">
+            <div className="flex items-center justify-center gap-2.5">
+                <img
+                    src="/astrix_logo_pack/favicon/favicon.svg"
+                    alt="ASTRIX"
+                    className="h-7 w-7 rounded-md"
+                />
+                <span className="text-xl font-bold tracking-wider text-gray-900 dark:text-white">
                     ASTRIX
                 </span>
             </div>

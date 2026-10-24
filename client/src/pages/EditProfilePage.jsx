@@ -424,11 +424,13 @@ function EditProfilePage() {
         <div className="min-h-screen bg-white text-gray-900 dark:bg-neutral-950 dark:text-neutral-100">
             <header className="border-b border-gray-200 bg-white/95 dark:border-neutral-800 dark:bg-neutral-950/95">
                 <div className="flex min-h-16 w-full items-center gap-4 px-5 lg:px-10">
-                    <Link to="/" className="flex items-center gap-2 text-[#e89a63]">
-                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#e89a63]">
-                            <span className="block h-4 w-2 -skew-x-12 rounded-sm bg-white" />
-                        </span>
-                        <span className="text-lg font-bold tracking-wide">ASTRIX</span>
+                    <Link to="/" className="flex items-center gap-2.5 transition hover:opacity-90">
+                        <img
+                            src="/astrix_logo_pack/favicon/favicon.svg"
+                            alt="ASTRIX Logo"
+                            className="h-8 w-8 rounded-lg shadow-sm"
+                        />
+                        <span className="text-lg font-bold tracking-wider text-gray-900 dark:text-white">ASTRIX</span>
                     </Link>
 
                     <Link

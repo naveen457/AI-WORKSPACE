@@ -63,11 +63,13 @@ function HomePage() {
         <div className="min-h-screen bg-white text-gray-900 dark:bg-neutral-950 dark:text-neutral-100">
             <header className="border-b border-gray-200 bg-white/95 dark:border-neutral-800 dark:bg-neutral-950/95">
                 <div className="relative flex min-h-16 w-full items-center gap-4 px-5 lg:px-10">
-                    <Link to="/" className="flex items-center gap-2 text-[#e89a63]">
-                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#e89a63]">
-                            <span className="block h-4 w-2 -skew-x-12 rounded-sm bg-white" />
-                        </span>
-                        <span className="text-lg font-bold tracking-wide">ASTRIX</span>
+                    <Link to="/" className="flex items-center gap-2.5 transition hover:opacity-90">
+                        <img
+                            src="/astrix_logo_pack/favicon/favicon.svg"
+                            alt="ASTRIX Logo"
+                            className="h-8 w-8 rounded-lg shadow-sm"
+                        />
+                        <span className="text-lg font-bold tracking-wider text-gray-900 dark:text-white">ASTRIX</span>
                     </Link>
 
                     <nav className="hidden items-center gap-6 text-sm font-semibold text-gray-700 dark:text-neutral-300 md:flex">
@@ -259,7 +261,10 @@ function HomePage() {
 
             <footer className="bg-white py-6 dark:bg-neutral-950">
                 <div className="flex w-full flex-col gap-3 px-5 text-sm text-gray-600 dark:text-neutral-400 sm:flex-row sm:items-center sm:justify-between lg:px-10">
-                    <span>ASTRIX</span>
+                    <div className="flex items-center gap-2">
+                        <img src="/astrix_logo_pack/favicon/favicon.svg" alt="ASTRIX Logo" className="h-5 w-5 rounded" />
+                        <span className="font-bold tracking-wider text-gray-900 dark:text-neutral-200">ASTRIX</span>
+                    </div>
                     <span>Home | Products | {user ? "Profile" : "Login / Signup"}</span>
                 </div>
             </footer>

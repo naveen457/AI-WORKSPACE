@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="260" viewBox="0 0 900 260">
+  <defs>
+    <linearGradient id="astrixGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#A855F7"/>
+      <stop offset="52%" stop-color="#6D5BFF"/>
+      <stop offset="100%" stop-color="#67E8F9"/>
+    </linearGradient>
+    <linearGradient id="orbitGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#A855F7"/>
+      <stop offset="100%" stop-color="#67E8F9"/>
+    </linearGradient>
+    <filter id="softGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs><rect width="900" height="260" fill="#FFFFFF"/><g transform="translate(18 30) scale(1)">
+      <g fill="none" stroke="url(#orbitGradient)" stroke-width="2.7" opacity="0.9">
+        <path d="M28 103 C36 54 93 34 148 54 C178 66 177 120 151 148"/>
+        <path d="M47 151 C74 173 124 171 151 148"/>
+      </g>
+      <g>
+        <path d="M100 18 L119 79 L182 100 L119 121 L100 182 L81 121 L18 100 L81 79 Z"
+          fill="url(#astrixGradient)" stroke="url(#astrixGradient)" stroke-linejoin="round" stroke-width="2"/>
+        <path d="M100 70 L110 90 L130 100 L110 110 L100 130 L90 110 L70 100 L90 90 Z"
+          fill="#FFFFFF"/>
+      </g>
+      <g fill="url(#orbitGradient)">
+        <circle cx="28" cy="103" r="8"/>
+        <circle cx="148" cy="54" r="8"/>
+        <circle cx="151" cy="148" r="8"/>
+      </g></g><text x="245" y="143" font-family="Inter, Manrope, Arial, sans-serif" font-size="104" font-weight="650" letter-spacing="-5" fill="#0B0D1A">astrix</text><path d="M521 65 L548 65 L575 102 L548 139 L521 139 L548 102 Z" fill="url(#astrixGradient)"/><text x="253" y="190" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="500" letter-spacing="8" fill="#65708D">AI WORKSPACE</text></svg>
