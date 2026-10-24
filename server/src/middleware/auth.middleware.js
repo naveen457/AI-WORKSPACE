@@ -1,12 +1,4 @@
-const jwt = require("jsonwebtoken");
-
-const JWT_SECRET =
-  process.env.JWT_SECRET ||
-  (process.env.NODE_ENV === "production" ? "" : "dev_jwt_secret_key");
-
-if (!JWT_SECRET) {
-  throw new Error("JWT_SECRET is required in production");
-}
+const { verifyAuthToken } = require("../utils/token.js");
 
 function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization || "";
@@ -21,7 +13,7 @@ function requireAuth(req, res, next) {
   }
 
   try {
-    req.auth = jwt.verify(token, JWT_SECRET);
+    req.auth = verifyAuthToken(token);
     return next();
   } catch (error) {
     return res.status(401).json({

@@ -8,19 +8,19 @@ const PasswordResetOtp = require("../models/PasswordResetOtp.js");
 const User = require("../models/User.js");
 const { sendOtpEmail } = require("../utils/mailer.js");
 const { logInfo, logWarn, logError } = require("../utils/logger.js");
+const {
+  createAuthToken,
+  verifyAuthToken,
+  createOAuthStateToken,
+  verifyOAuthStateToken,
+  getJwtSecret,
+} = require("../utils/token.js");
 
 const router = express.Router();
 
 const BCRYPT_SALT_ROUNDS = 12;
 const OTP_EXPIRY_MS = 10 * 60 * 1000;
 const CLIENT_URL = process.env.CLIENT_URL;
-const JWT_SECRET =
-  process.env.JWT_SECRET ||
-  (process.env.NODE_ENV === "production" ? "" : "dev_jwt_secret_key");
-
-if (!JWT_SECRET) {
-  throw new Error("JWT_SECRET is required in production");
-}
 
 function isValidEmail(email) {
   return /\S+@\S+\.\S+/.test(email);
@@ -31,17 +31,6 @@ function createOtp() {
 }
 function normalizeIdentifier(value) {
   return value?.trim().toLowerCase();
-}
-
-function createAuthToken(user) {
-  return jwt.sign(
-    {
-      id: user._id,
-      email: user.email,
-    },
-    JWT_SECRET,
-    { expiresIn: "7d" },
-  );
 }
 
 function getPublicUser(user) {
@@ -74,7 +63,7 @@ function requireAuth(req, res, next) {
   }
 
   try {
-    req.auth = jwt.verify(token, JWT_SECRET);
+    req.auth = verifyAuthToken(token);
     return next();
   } catch (error) {
     return res.status(401).json({
@@ -308,7 +297,7 @@ router.post("/verify-email-otp", async (req, res) => {
 
 router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, rememberMe } = req.body;
     const normalizedEmail = normalizeIdentifier(email);
 
     if (!normalizedEmail || !password) {
@@ -333,7 +322,8 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    const token = createAuthToken(user);
+    const isRemember = Boolean(rememberMe);
+    const token = createAuthToken(user, isRemember);
 
     return res.status(200).json({
       message: "Login successful",
@@ -461,7 +451,7 @@ router.put("/personal-details", requireAuth, async (req, res) => {
 
     return res.status(200).json({
       message: "Personal details updated successfully",
-      token: createAuthToken(user),
+      token: createAuthToken(user, req.auth?.rememberMe),
       user: getPublicUser(user),
     });
   } catch (error) {
@@ -708,19 +698,23 @@ router.post("/reset-password", async (req, res) => {
 });
 
 // OAuth Routes
-router.get(
-  "/google",
+router.get("/google", (req, res, next) => {
+  const rememberMe = req.query.rememberMe === "true" || req.query.rememberMe === "1";
+  const state = createOAuthStateToken({ rememberMe, provider: "google" });
   passport.authenticate("google", {
     scope: ["profile", "email"],
     session: false,
-  }),
-);
+    state,
+  })(req, res, next);
+});
 
 router.get(
   "/google/callback",
   passport.authenticate("google", { session: false }),
   (req, res) => {
     const user = req.user;
+    const statePayload = verifyOAuthStateToken(req.query.state);
+    const rememberMe = Boolean(statePayload?.rememberMe);
 
     if (user.isNewUser) {
       // New user - redirect to frontend to confirm profile details
@@ -732,36 +726,41 @@ router.get(
           provider: user.provider,
           googleId: user.googleId,
           isNewUser: true,
+          rememberMe,
         },
-        JWT_SECRET,
+        getJwtSecret(),
         { expiresIn: "1h" },
       );
 
       return res.redirect(
-        `${CLIENT_URL}/oauth-complete?token=${token}&provider=google`,
+        `${CLIENT_URL}/oauth-complete?token=${token}&provider=google&rememberMe=${rememberMe}`,
       );
     }
 
     // Existing user - generate JWT and redirect to dashboard
-    const token = createAuthToken(user);
+    const token = createAuthToken(user, rememberMe);
 
-    res.redirect(`${CLIENT_URL}/auth?token=${token}`);
+    res.redirect(`${CLIENT_URL}/auth?token=${token}&rememberMe=${rememberMe}`);
   },
 );
 
-router.get(
-  "/github",
+router.get("/github", (req, res, next) => {
+  const rememberMe = req.query.rememberMe === "true" || req.query.rememberMe === "1";
+  const state = createOAuthStateToken({ rememberMe, provider: "github" });
   passport.authenticate("github", {
     scope: ["user:email"],
     session: false,
-  }),
-);
+    state,
+  })(req, res, next);
+});
 
 router.get(
   "/github/callback",
   passport.authenticate("github", { session: false }),
   (req, res) => {
     const user = req.user;
+    const statePayload = verifyOAuthStateToken(req.query.state);
+    const rememberMe = Boolean(statePayload?.rememberMe);
 
     if (user.isNewUser) {
       const token = jwt.sign(
@@ -772,19 +771,20 @@ router.get(
           provider: user.provider,
           githubId: user.githubId,
           isNewUser: true,
+          rememberMe,
         },
-        JWT_SECRET,
+        getJwtSecret(),
         { expiresIn: "1h" },
       );
 
       return res.redirect(
-        `${CLIENT_URL}/oauth-complete?token=${token}&provider=github`,
+        `${CLIENT_URL}/oauth-complete?token=${token}&provider=github&rememberMe=${rememberMe}`,
       );
     }
 
-    const token = createAuthToken(user);
+    const token = createAuthToken(user, rememberMe);
 
-    res.redirect(`${CLIENT_URL}/auth?token=${token}`);
+    res.redirect(`${CLIENT_URL}/auth?token=${token}&rememberMe=${rememberMe}`);
   },
 );
 
@@ -809,7 +809,7 @@ router.post("/oauth-complete-signup", async (req, res) => {
     // Verify token
     let decoded;
     try {
-      decoded = jwt.verify(token, JWT_SECRET);
+      decoded = jwt.verify(token, getJwtSecret());
     } catch (error) {
       return res.status(401).json({
         message: "Invalid or expired token",
@@ -850,7 +850,10 @@ router.post("/oauth-complete-signup", async (req, res) => {
     });
 
     // Generate JWT
-    const authToken = createAuthToken(user);
+    const rememberMe = typeof req.body.rememberMe === "boolean"
+      ? req.body.rememberMe
+      : Boolean(decoded.rememberMe);
+    const authToken = createAuthToken(user, rememberMe);
 
     return res.status(201).json({
       message: "Account created successfully",

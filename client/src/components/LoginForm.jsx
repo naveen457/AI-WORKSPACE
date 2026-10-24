@@ -20,6 +20,7 @@ function LoginForm() {
     const [statusMessage, setStatusMessage] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [authMode, setAuthMode] = useState("login");
+    const [rememberMe, setRememberMe] = useState(false);
 
     function handleChange(e) {
         const { name, value } = e.target;
@@ -68,6 +69,7 @@ function LoginForm() {
 
     function resetToLogin(message = "") {
         setAuthMode("login");
+        setRememberMe(false);
         setErrors({});
         setStatusMessage(message);
         setFormData({
@@ -94,11 +96,12 @@ function LoginForm() {
 
             const response = await api.post("/auth/login", {
                 email: formData.email.trim(),
-                password: formData.password
+                password: formData.password,
+                rememberMe
             });
 
             if (response.data.token) {
-                login(response.data.token, response.data.user || null);
+                login(response.data.token, response.data.user || null, rememberMe);
             }
 
             setStatusMessage("Login successful. Redirecting...");
@@ -307,17 +310,33 @@ function LoginForm() {
                         </p>
                     }
 
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setAuthMode("forgot");
-                            setErrors({});
-                            setStatusMessage("");
-                        }}
-                        className="self-start text-xs font-semibold text-[#d47f4f] hover:text-[#b8663b]"
-                    >
-                        Forgot / Reset password?
-                    </button>
+                    <div className="flex items-center justify-between gap-2 mt-1">
+                        <label htmlFor="rememberMe" className="flex items-center gap-2 cursor-pointer select-none">
+                            <input
+                                type="checkbox"
+                                id="rememberMe"
+                                name="rememberMe"
+                                checked={rememberMe}
+                                onChange={(e) => setRememberMe(e.target.checked)}
+                                className="h-4 w-4 rounded border-gray-400 text-[#d47f4f] focus:ring-[#e89a63] dark:border-neutral-700 dark:bg-neutral-900 cursor-pointer"
+                            />
+                            <span className="text-xs text-black dark:text-neutral-300">
+                                Remember me for 7 days
+                            </span>
+                        </label>
+
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setAuthMode("forgot");
+                                setErrors({});
+                                setStatusMessage("");
+                            }}
+                            className="text-xs font-semibold text-[#d47f4f] hover:text-[#b8663b]"
+                        >
+                            Forgot / Reset password?
+                        </button>
+                    </div>
 
                 </div>
             }
@@ -434,7 +453,7 @@ function LoginForm() {
                 authMode === "login" &&
                 <>
                     <div className="my-2 border-t border-gray-300"></div>
-                    <OAuthButtons />
+                    <OAuthButtons rememberMe={rememberMe} />
                 </>
             }
 

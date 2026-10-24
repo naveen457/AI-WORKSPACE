@@ -1,80 +1,97 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import api from "../api/api";
+import {
+  getToken,
+  setToken as setTokenInStorage,
+  clearAuth,
+  getStoredUser,
+  setStoredUser,
+  isRemembered,
+} from "../utils/tokenStorage.js";
 
 const AuthContext = createContext(null);
 
-function getStoredUser() {
-  try {
-    return JSON.parse(localStorage.getItem("authUser")) || null;
-  } catch {
-    return null;
-  }
-}
-
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(getStoredUser);
-  const [token, setToken] = useState(() => localStorage.getItem("authToken") || null);
-  const [loading, setLoading] = useState(true);
+  const [token, setTokenState] = useState(() => getToken());
+  const [user, setUserState] = useState(() => (getToken() ? getStoredUser() : null));
+  const [loading, setLoading] = useState(() => Boolean(getToken()));
 
   useEffect(() => {
-    const storedToken = localStorage.getItem("authToken");
+    function handleUnauthorized() {
+      setUserState(null);
+      setTokenState(null);
+    }
 
-    if (!storedToken) {
-      setUser(null);
-      setToken(null);
-      setLoading(false);
+    window.addEventListener("auth:unauthorized", handleUnauthorized);
+    return () => {
+      window.removeEventListener("auth:unauthorized", handleUnauthorized);
+    };
+  }, []);
+
+  useEffect(() => {
+    const currentToken = getToken();
+
+    if (!currentToken) {
       return;
     }
+
+    let isMounted = true;
 
     async function verifyAndLoadUser() {
       try {
         const response = await api.get("/auth/me");
-        if (response.data?.user) {
-          setUser(response.data.user);
-          setToken(storedToken);
-          localStorage.setItem("authUser", JSON.stringify(response.data.user));
+        if (isMounted && response.data?.user) {
+          const remembered = isRemembered();
+          setUserState(response.data.user);
+          setStoredUser(response.data.user, remembered);
         }
       } catch (err) {
         console.warn("Session verification check failed:", err.message);
         if (err.response && err.response.status === 401) {
-          // Explicit token rejection: credentials expired or invalid
-          localStorage.removeItem("authToken");
-          localStorage.removeItem("authUser");
-          setUser(null);
-          setToken(null);
-        } else {
-          // Backend is redeploying, warming up, or temporary network glitch: preserve session
-          console.warn("Server unreachable or redeploying; retaining cached user session.");
+          clearAuth();
+          if (isMounted) {
+            setUserState(null);
+            setTokenState(null);
+          }
         }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     }
 
     verifyAndLoadUser();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  function login(newToken, newUser) {
+  function login(newToken, newUser, rememberMe = false) {
+    const isRemember = Boolean(rememberMe);
+
     if (newToken) {
-      localStorage.setItem("authToken", newToken);
-      setToken(newToken);
+      setTokenInStorage(newToken, isRemember);
+      setTokenState(newToken);
     }
+
     if (newUser) {
-      localStorage.setItem("authUser", JSON.stringify(newUser));
-      setUser(newUser);
+      setStoredUser(newUser, isRemember);
+      setUserState(newUser);
     }
   }
 
   function logout() {
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("authUser");
-    setUser(null);
-    setToken(null);
+    clearAuth();
+    setUserState(null);
+    setTokenState(null);
   }
 
   function updateUser(updatedUser) {
-    setUser(updatedUser);
-    localStorage.setItem("authUser", JSON.stringify(updatedUser));
+    const isRemember = isRemembered();
+    setUserState(updatedUser);
+    setStoredUser(updatedUser, isRemember);
   }
 
   return (
@@ -87,6 +104,7 @@ export function AuthProvider({ children }) {
         login,
         logout,
         updateUser,
+        isRemembered,
       }}
     >
       {children}
@@ -94,6 +112,7 @@ export function AuthProvider({ children }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {

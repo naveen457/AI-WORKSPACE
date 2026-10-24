@@ -2,6 +2,13 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../api/api";
 import { useAuth } from "../context/AuthContext";
+import {
+    getToken,
+    getStoredUser,
+    setToken,
+    clearAuth,
+    isRemembered,
+} from "../utils/tokenStorage.js";
 
 const SETTINGS_SECTIONS = [
     {
@@ -20,14 +27,6 @@ const SETTINGS_SECTIONS = [
         description: "Verify with email OTP",
     },
 ];
-
-function getStoredUser() {
-    try {
-        return JSON.parse(localStorage.getItem("authUser")) || null;
-    } catch {
-        return null;
-    }
-}
 
 function getInitials(user) {
     const first = user?.firstName?.trim()?.[0] || "";
@@ -110,7 +109,7 @@ function EditProfilePage() {
     }, [phoneOtpModal]);
 
     useEffect(() => {
-        const token = localStorage.getItem("authToken");
+        const token = getToken();
 
         if (!token) {
             navigate("/auth", { replace: true });
@@ -122,8 +121,7 @@ function EditProfilePage() {
                 const response = await api.get("/auth/me");
                 syncUser(response.data.user);
             } catch {
-                localStorage.removeItem("authToken");
-                localStorage.removeItem("authUser");
+                clearAuth();
                 navigate("/auth", { replace: true });
             }
         }
@@ -174,7 +172,7 @@ function EditProfilePage() {
             });
 
             if (response.data.token) {
-                localStorage.setItem("authToken", response.data.token);
+                setToken(response.data.token, isRemembered());
             }
 
             syncUser(response.data.user);

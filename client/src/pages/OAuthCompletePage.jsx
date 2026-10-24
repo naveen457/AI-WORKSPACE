@@ -20,6 +20,7 @@ function OAuthCompletePage() {
     const { login } = useAuth();
     const [searchParams] = useSearchParams();
     const token = searchParams.get("token");
+    const rememberMe = searchParams.get("rememberMe") === "true";
     const providerFromUrl = searchParams.get("provider") || "OAuth";
     const decodedProfile = useMemo(() => {
         if (!token) {
@@ -111,10 +112,11 @@ function OAuthCompletePage() {
                 firstName: formData.firstName.trim(),
                 lastName: formData.lastName.trim(),
                 password: formData.password,
+                rememberMe,
             });
 
             if (response.data.token) {
-                login(response.data.token, response.data.user || null);
+                login(response.data.token, response.data.user || null, rememberMe);
                 setStatusMessage("Account created successfully! Redirecting...");
                 
                 setTimeout(() => {

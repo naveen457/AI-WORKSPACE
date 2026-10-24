@@ -9,20 +9,7 @@ const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 const githubClientID = process.env.GITHUB_CLIENT_ID;
 const githubClientSecret = process.env.GITHUB_CLIENT_SECRET;
 
-// Serialize user
-passport.serializeUser((user, done) => {
-  done(null, user.id);
-});
-
-// Deserialize user
-passport.deserializeUser(async (id, done) => {
-  try {
-    const user = await User.findById(id);
-    done(null, user);
-  } catch (error) {
-    done(error);
-  }
-});
+// Sessionless Passport configuration: serializeUser/deserializeUser removed
 
 // Google Strategy
 if (googleClientID && googleClientSecret) {

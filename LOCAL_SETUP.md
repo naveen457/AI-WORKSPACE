@@ -36,7 +36,6 @@ CLIENT_URL=your_frontend_origin
 SERVER_URL=your_backend_origin
 
 JWT_SECRET=replace_with_a_long_random_value
-SESSION_SECRET=replace_with_a_long_random_value
 
 RESEND_API_KEY=your_resend_api_key
 RESEND_FROM="Astrix <noreply@astrix-app.me>"

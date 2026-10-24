@@ -1,4 +1,5 @@
 import axios from "axios";
+import { getToken, clearAuth } from "../utils/tokenStorage.js";
 
 export const API_BASE_URL = (
   import.meta.env.VITE_API_URL || "http://localhost:5000"
@@ -9,12 +10,8 @@ const api = axios.create({
   withCredentials: true,
 });
 
-if (process.env.NODE_ENV !== "production") {
-  api.defaults.baseURL = `${API_BASE_URL}/`;
-}
-
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("authToken");
+  const token = getToken();
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -22,5 +19,22 @@ api.interceptors.request.use((config) => {
 
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      clearAuth();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("auth:unauthorized"));
+        const pathname = window.location.pathname;
+        if (pathname !== "/auth" && pathname !== "/" && pathname !== "/oauth-complete") {
+          window.location.replace("/auth");
+        }
+      }
+    }
+    return Promise.reject(error);
+  },
+);
 
 export default api;

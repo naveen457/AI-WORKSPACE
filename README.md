@@ -81,7 +81,6 @@ Backend variables live in `server/.env` locally and in the backend service envir
 - `CLIENT_URL`
 - `SERVER_URL`
 - `JWT_SECRET`
-- `SESSION_SECRET`
 - `RESEND_API_KEY`
 - `RESEND_FROM`
 - `RESEND_REPLY_TO`

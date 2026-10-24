@@ -34,7 +34,6 @@ CLIENT_URL=your_frontend_origin
 # Use your deployed backend origin, or your backend port URL when testing locally.
 SERVER_URL=your_backend_origin
 JWT_SECRET=replace_with_a_long_random_value
-SESSION_SECRET=replace_with_a_long_random_value
 ```
 
 Email OTPs through Resend:

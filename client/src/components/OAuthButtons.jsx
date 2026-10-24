@@ -1,8 +1,9 @@
 import { API_BASE_URL } from "../api/api";
 
-function OAuthButtons() {
-    const googleAuthUrl = `${API_BASE_URL}/auth/google`;
-    const githubAuthUrl = `${API_BASE_URL}/auth/github`;
+function OAuthButtons({ rememberMe = false }) {
+    const rememberQuery = rememberMe ? "?rememberMe=true" : "";
+    const googleAuthUrl = `${API_BASE_URL}/auth/google${rememberQuery}`;
+    const githubAuthUrl = `${API_BASE_URL}/auth/github${rememberQuery}`;
 
     return (
         <div className="flex flex-col gap-3">

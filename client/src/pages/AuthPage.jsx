@@ -16,9 +16,10 @@ function AuthPage() {
 
     useEffect(() => {
         const token = searchParams.get("token");
+        const rememberMe = searchParams.get("rememberMe") === "true";
 
         if (token) {
-            login(token, null);
+            login(token, null, rememberMe);
             setSearchParams({}, { replace: true });
             navigate("/", { replace: true });
         }
