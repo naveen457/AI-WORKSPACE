@@ -65,7 +65,7 @@ function createOAuthStateToken(data = {}) {
       nonce: Math.random().toString(36).substring(2),
     },
     getJwtSecret(),
-    { expiresIn: "10m" },
+    { expiresIn: "30m" },
   );
 }
 
