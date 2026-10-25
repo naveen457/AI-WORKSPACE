@@ -4,6 +4,15 @@ function getLlmServiceUrl() {
   return (process.env.RL_LLM_API_URL || "").replace(/\/+$/, "");
 }
 
+function getAuthHeaders(extraHeaders = {}) {
+  const secret = (process.env.INTERNAL_SERVICE_SECRET || "").trim();
+  const headers = { ...extraHeaders };
+  if (secret) {
+    headers["x-internal-secret"] = secret;
+  }
+  return headers;
+}
+
 async function callLlmService({ message, conversationId, userId }) {
   const serviceUrl = getLlmServiceUrl();
 
@@ -27,9 +36,9 @@ async function callLlmService({ message, conversationId, userId }) {
   try {
     response = await fetch(`${serviceUrl}/chat`, {
       method: "POST",
-      headers: {
+      headers: getAuthHeaders({
         "Content-Type": "application/json",
-      },
+      }),
       body: JSON.stringify({
         message,
         conversationId,
@@ -84,6 +93,7 @@ async function fetchThreads({ userId } = {}) {
       ? `${serviceUrl}/threads?user_id=${encodeURIComponent(userId)}`
       : `${serviceUrl}/threads`;
     const res = await fetch(url, {
+      headers: getAuthHeaders(),
       signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) return { threads: [] };
@@ -103,6 +113,7 @@ async function fetchThreadMessages({ threadId, userId } = {}) {
       ? `${serviceUrl}/threads/${encodeURIComponent(threadId)}/messages?user_id=${encodeURIComponent(userId)}`
       : `${serviceUrl}/threads/${encodeURIComponent(threadId)}/messages`;
     const res = await fetch(url, {
+      headers: getAuthHeaders(),
       signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) return { messages: [] };
@@ -120,7 +131,7 @@ async function sendFeedback({ threadId, feedback, comment, userId }) {
   try {
     const res = await fetch(`${serviceUrl}/chat/feedback`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getAuthHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         thread_id: threadId,
         feedback,
@@ -146,6 +157,7 @@ async function fetchThreadGraph({ threadId, userId } = {}) {
       ? `${serviceUrl}/threads/${encodeURIComponent(threadId)}/graph?user_id=${encodeURIComponent(userId)}`
       : `${serviceUrl}/threads/${encodeURIComponent(threadId)}/graph`;
     const res = await fetch(url, {
+      headers: getAuthHeaders(),
       signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) return { graph: null };
@@ -183,6 +195,7 @@ async function fetchMetrics({ userId, threadId } = {}) {
     }
     const url = `${serviceUrl}/metrics?${params.toString()}`;
     const res = await fetch(url, {
+      headers: getAuthHeaders(),
       signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) {
@@ -241,6 +254,7 @@ async function fetchBenchmarks() {
 
   try {
     const res = await fetch(`${serviceUrl}/benchmarks`, {
+      headers: getAuthHeaders(),
       signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) {
