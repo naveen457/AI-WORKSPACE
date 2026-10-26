@@ -14,8 +14,12 @@ const {
   createOAuthStateToken,
   verifyOAuthStateToken,
   getJwtSecret,
+  AUTH_COOKIE_NAME,
+  getAuthCookieOptions,
+  setAuthCookie,
+  clearAuthCookie,
 } = require("../src/utils/token.js");
-const { requireAuth } = require("../src/middleware/auth.middleware.js");
+const { requireAuth, extractToken } = require("../src/middleware/auth.middleware.js");
 const app = require("../src/app.js");
 const mongoose = require("mongoose");
 
@@ -295,5 +299,97 @@ test.describe("Backend JWT Authentication & Remember Me", () => {
     const decodedFallback = verifyAuthToken(fallbackToken);
     assert.equal(decodedFallback.rememberMe, false);
     assert.equal(decodedFallback.exp - decodedFallback.iat, 30 * 60);
+  });
+
+  test("10. requireAuth authenticates directly from HttpOnly cookie without Authorization header", () => {
+    const validToken = createAuthToken(mockUser, false);
+    const reqWithCookie = {
+      headers: {},
+      cookies: {
+        [AUTH_COOKIE_NAME]: validToken,
+      },
+    };
+
+    let nextCalled = false;
+    requireAuth(reqWithCookie, {}, () => {
+      nextCalled = true;
+    });
+
+    assert.equal(nextCalled, true);
+    assert.equal(reqWithCookie.auth.id, mockUser._id);
+    assert.equal(reqWithCookie.auth.email, mockUser.email);
+    assert.equal(reqWithCookie.auth.rememberMe, false);
+
+    // Fallback if named 'token'
+    const reqWithAltCookie = {
+      headers: {},
+      cookies: {
+        token: validToken,
+      },
+    };
+    let altNextCalled = false;
+    requireAuth(reqWithAltCookie, {}, () => {
+      altNextCalled = true;
+    });
+    assert.equal(altNextCalled, true);
+  });
+
+  test("11. Cookie options enforce httpOnly, sameSite, path, and maxAge", () => {
+    // Remember me = true -> 7 days maxAge
+    const rememberOptions = getAuthCookieOptions(true);
+    assert.equal(rememberOptions.httpOnly, true);
+    assert.ok(rememberOptions.sameSite === "lax" || rememberOptions.sameSite === "none");
+    assert.equal(rememberOptions.maxAge, 7 * 24 * 60 * 60 * 1000);
+    assert.equal(rememberOptions.path, "/");
+
+    // Remember me = false -> 30 minutes maxAge
+    const sessionOptions = getAuthCookieOptions(false);
+    assert.equal(sessionOptions.httpOnly, true);
+    assert.ok(sessionOptions.sameSite === "lax" || sessionOptions.sameSite === "none");
+    assert.equal(sessionOptions.maxAge, 30 * 60 * 1000);
+    assert.equal(sessionOptions.path, "/");
+
+    // Test setAuthCookie & clearAuthCookie calls on mock res
+    let setCookieCalled = false;
+    let clearedCookieCalled = false;
+    const mockRes = {
+      cookie(name, val, opts) {
+        setCookieCalled = true;
+        assert.equal(name, AUTH_COOKIE_NAME);
+        assert.equal(opts.httpOnly, true);
+      },
+      clearCookie(name, opts) {
+        clearedCookieCalled = true;
+        assert.equal(name, AUTH_COOKIE_NAME);
+        assert.equal(opts.httpOnly, true);
+      },
+    };
+
+    setAuthCookie(mockRes, "mock.token.here", true);
+    assert.equal(setCookieCalled, true);
+
+    clearAuthCookie(mockRes);
+    assert.equal(clearedCookieCalled, true);
+  });
+
+  test("12. POST /auth/logout clears auth cookie and responds 200", async () => {
+    const server = http.createServer(app);
+    await new Promise((resolve) => server.listen(0, resolve));
+    const port = server.address().port;
+
+    try {
+      const res = await fetch(`http://localhost:${port}/auth/logout`, {
+        method: "POST",
+      });
+      assert.equal(res.status, 200);
+      const data = await res.json();
+      assert.equal(data.message, "Logged out successfully");
+
+      const setCookie = res.headers.get("set-cookie");
+      assert.ok(setCookie);
+      assert.ok(setCookie.includes(AUTH_COOKIE_NAME));
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
   });
 });

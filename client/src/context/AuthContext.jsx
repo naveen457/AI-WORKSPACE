@@ -1,8 +1,7 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import api from "../api/api";
 import {
   getToken,
-  setToken as setTokenInStorage,
   clearAuth,
   getStoredUser,
   setStoredUser,
@@ -13,8 +12,30 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [token, setTokenState] = useState(() => getToken());
-  const [user, setUserState] = useState(() => (getToken() ? getStoredUser() : null));
-  const [loading, setLoading] = useState(() => Boolean(getToken()));
+  const [user, setUserState] = useState(() => getStoredUser());
+  const [loading, setLoading] = useState(true);
+
+  // Synchronize or verify current session via /auth/me using HttpOnly cookie or header
+  const checkAuth = useCallback(async () => {
+    try {
+      const response = await api.get("/auth/me");
+      if (response.data?.user) {
+        setUserState(response.data.user);
+        const remembered = isRemembered();
+        setStoredUser(response.data.user, remembered);
+        return response.data.user;
+      }
+    } catch (err) {
+      if (err.response && err.response.status === 401) {
+        clearAuth();
+        setUserState(null);
+        setTokenState(null);
+      }
+    } finally {
+      setLoading(false);
+    }
+    return null;
+  }, []);
 
   useEffect(() => {
     function handleUnauthorized() {
@@ -29,63 +50,38 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    const currentToken = getToken();
+    checkAuth();
+  }, [checkAuth]);
 
-    if (!currentToken) {
-      return;
-    }
-
-    let isMounted = true;
-
-    async function verifyAndLoadUser() {
-      try {
-        const response = await api.get("/auth/me");
-        if (isMounted && response.data?.user) {
-          const remembered = isRemembered();
-          setUserState(response.data.user);
-          setStoredUser(response.data.user, remembered);
-        }
-      } catch (err) {
-        console.warn("Session verification check failed:", err.message);
-        if (err.response && err.response.status === 401) {
-          clearAuth();
-          if (isMounted) {
-            setUserState(null);
-            setTokenState(null);
-          }
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    }
-
-    verifyAndLoadUser();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  function login(newToken, newUser, rememberMe = false) {
+  async function login(newToken, newUser, rememberMe = false) {
     const isRemember = Boolean(rememberMe);
 
     if (newToken) {
-      setTokenInStorage(newToken, isRemember);
       setTokenState(newToken);
     }
 
     if (newUser) {
       setStoredUser(newUser, isRemember);
       setUserState(newUser);
+    } else {
+      // If user object not passed immediately (e.g. from OAuth redirect), fetch /auth/me
+      await checkAuth();
     }
   }
 
-  function logout() {
-    clearAuth();
-    setUserState(null);
-    setTokenState(null);
+  async function logout() {
+    try {
+      await api.post("/auth/logout");
+    } catch {
+      // Ignore network errors during logout
+    } finally {
+      clearAuth();
+      setUserState(null);
+      setTokenState(null);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("auth:unauthorized"));
+      }
+    }
   }
 
   function updateUser(updatedUser) {
@@ -99,12 +95,13 @@ export function AuthProvider({ children }) {
       value={{
         user,
         token,
-        isAuthenticated: Boolean(token && user),
+        isAuthenticated: Boolean(user),
         loading,
         login,
         logout,
         updateUser,
         isRemembered,
+        checkAuth,
       }}
     >
       {children}
@@ -120,3 +117,4 @@ export function useAuth() {
   }
   return context;
 }
+

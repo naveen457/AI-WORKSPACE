@@ -10,7 +10,7 @@ import SignupForm from "../components/SignupForm";
 function AuthPage() {
 
     const navigate = useNavigate();
-    const { login } = useAuth();
+    const { login, isAuthenticated, loading } = useAuth();
     const [searchParams, setSearchParams] = useSearchParams();
     const [isLogin, setIsLogin] = useState(true);
 
@@ -22,8 +22,13 @@ function AuthPage() {
             login(token, null, rememberMe);
             setSearchParams({}, { replace: true });
             navigate("/", { replace: true });
+            return;
         }
-    }, [navigate, searchParams, setSearchParams, login]);
+
+        if (!loading && isAuthenticated) {
+            navigate("/", { replace: true });
+        }
+    }, [navigate, searchParams, setSearchParams, login, isAuthenticated, loading]);
 
     return (
 

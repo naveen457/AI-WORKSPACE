@@ -1,6 +1,7 @@
 const path = require("path");
 const express = require("express");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
 const dotenv = require("dotenv");
 const passport = require("passport");
 
@@ -48,6 +49,7 @@ app.use(
   }),
 );
 
+app.use(cookieParser());
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 

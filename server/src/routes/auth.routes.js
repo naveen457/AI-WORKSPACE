@@ -14,7 +14,10 @@ const {
   createOAuthStateToken,
   verifyOAuthStateToken,
   getJwtSecret,
+  setAuthCookie,
+  clearAuthCookie,
 } = require("../utils/token.js");
+const { requireAuth } = require("../middleware/auth.middleware.js");
 
 const router = express.Router();
 
@@ -50,27 +53,6 @@ function getPublicUser(user) {
   };
 }
 
-function requireAuth(req, res, next) {
-  const authHeader = req.headers.authorization || "";
-  const token = authHeader.startsWith("Bearer ")
-    ? authHeader.slice("Bearer ".length)
-    : "";
-
-  if (!token) {
-    return res.status(401).json({
-      message: "Authentication required",
-    });
-  }
-
-  try {
-    req.auth = verifyAuthToken(token);
-    return next();
-  } catch (error) {
-    return res.status(401).json({
-      message: "Invalid or expired session",
-    });
-  }
-}
 
 function isValidPassword(password) {
   return (
@@ -324,6 +306,7 @@ router.post("/login", async (req, res) => {
 
     const isRemember = Boolean(rememberMe);
     const token = createAuthToken(user, isRemember);
+    setAuthCookie(res, token, isRemember);
 
     return res.status(200).json({
       message: "Login successful",
@@ -449,9 +432,13 @@ router.put("/personal-details", requireAuth, async (req, res) => {
       },
     );
 
+    const isRemember = Boolean(req.auth?.rememberMe);
+    const token = createAuthToken(user, isRemember);
+    setAuthCookie(res, token, isRemember);
+
     return res.status(200).json({
       message: "Personal details updated successfully",
-      token: createAuthToken(user, req.auth?.rememberMe),
+      token,
       user: getPublicUser(user),
     });
   } catch (error) {
@@ -739,6 +726,7 @@ router.get(
 
     // Existing user - generate JWT and redirect to dashboard
     const token = createAuthToken(user, rememberMe);
+    setAuthCookie(res, token, rememberMe);
 
     res.redirect(`${CLIENT_URL}/auth?token=${token}&rememberMe=${rememberMe}`);
   },
@@ -783,6 +771,7 @@ router.get(
     }
 
     const token = createAuthToken(user, rememberMe);
+    setAuthCookie(res, token, rememberMe);
 
     res.redirect(`${CLIENT_URL}/auth?token=${token}&rememberMe=${rememberMe}`);
   },
@@ -854,6 +843,7 @@ router.post("/oauth-complete-signup", async (req, res) => {
       ? req.body.rememberMe
       : Boolean(decoded.rememberMe);
     const authToken = createAuthToken(user, rememberMe);
+    setAuthCookie(res, authToken, rememberMe);
 
     return res.status(201).json({
       message: "Account created successfully",
@@ -865,6 +855,13 @@ router.post("/oauth-complete-signup", async (req, res) => {
       message: "Unable to complete OAuth signup",
     });
   }
+});
+
+router.post("/logout", (req, res) => {
+  clearAuthCookie(res);
+  return res.status(200).json({
+    message: "Logged out successfully",
+  });
 });
 
 module.exports = router;

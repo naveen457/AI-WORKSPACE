@@ -90,6 +90,72 @@ function verifyOAuthStateToken(state) {
   }
 }
 
+const AUTH_COOKIE_NAME = "authToken";
+
+/**
+ * Returns options for setting the authentication cookie.
+ *
+ * @param {boolean} [rememberMe=false] - Whether this session uses persistent expiry (7 days) or session-like (30 mins)
+ * @returns {Object} Express cookie options
+ */
+function getAuthCookieOptions(rememberMe = false) {
+  const isProduction = process.env.NODE_ENV === "production";
+  const sameSite =
+    process.env.COOKIE_SAME_SITE || (isProduction ? "none" : "lax");
+  const secure =
+    process.env.COOKIE_SECURE !== undefined
+      ? process.env.COOKIE_SECURE === "true"
+      : isProduction;
+
+  // 7 days if rememberMe, otherwise 30 minutes
+  const maxAge = rememberMe
+    ? 7 * 24 * 60 * 60 * 1000
+    : 30 * 60 * 1000;
+
+  return {
+    httpOnly: true,
+    secure,
+    sameSite,
+    maxAge,
+    path: "/",
+  };
+}
+
+/**
+ * Attaches the HttpOnly SameSite authentication cookie to the response.
+ *
+ * @param {import("express").Response} res - Express response object
+ * @param {string} token - Signed JWT token
+ * @param {boolean} [rememberMe=false] - Remember me preference
+ */
+function setAuthCookie(res, token, rememberMe = false) {
+  if (!res || typeof res.cookie !== "function") return;
+  res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions(rememberMe));
+}
+
+/**
+ * Clears the authentication cookie from the client.
+ *
+ * @param {import("express").Response} res - Express response object
+ */
+function clearAuthCookie(res) {
+  if (!res || typeof res.clearCookie !== "function") return;
+  const isProduction = process.env.NODE_ENV === "production";
+  const sameSite =
+    process.env.COOKIE_SAME_SITE || (isProduction ? "none" : "lax");
+  const secure =
+    process.env.COOKIE_SECURE !== undefined
+      ? process.env.COOKIE_SECURE === "true"
+      : isProduction;
+
+  res.clearCookie(AUTH_COOKIE_NAME, {
+    httpOnly: true,
+    secure,
+    sameSite,
+    path: "/",
+  });
+}
+
 module.exports = {
   getJwtSecret,
   createAuthToken,
@@ -98,4 +164,9 @@ module.exports = {
   verifyOAuthStateToken,
   JWT_EXPIRES_IN_REMEMBER,
   JWT_EXPIRES_IN_SHORT,
+  AUTH_COOKIE_NAME,
+  getAuthCookieOptions,
+  setAuthCookie,
+  clearAuthCookie,
 };
+

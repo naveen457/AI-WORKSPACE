@@ -109,24 +109,27 @@ function EditProfilePage() {
     }, [phoneOtpModal]);
 
     useEffect(() => {
-        const token = getToken();
-
-        if (!token) {
-            navigate("/auth", { replace: true });
-            return;
-        }
+        let isMounted = true;
 
         async function loadUser() {
             try {
                 const response = await api.get("/auth/me");
-                syncUser(response.data.user);
+                if (isMounted && response.data?.user) {
+                    syncUser(response.data.user);
+                }
             } catch {
                 clearAuth();
-                navigate("/auth", { replace: true });
+                if (isMounted) {
+                    navigate("/auth", { replace: true });
+                }
             }
         }
 
         loadUser();
+
+        return () => {
+            isMounted = false;
+        };
     }, [navigate]);
 
     function syncUser(nextUser) {
