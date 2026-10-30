@@ -1,10 +1,25 @@
 import api from "./api.js";
 
 export function sendChatMessage({ message, conversationId }) {
-  return api.post("/chat", {
-    message,
-    conversationId,
-  });
+  return api.post(
+    "/chat",
+    {
+      message,
+      conversationId,
+    },
+    {
+      // Allow up to 2.5 minutes for Render cold starts + multi-agent execution
+      timeout: 150000,
+    }
+  );
+}
+
+export function getChatServiceStatus() {
+  return api.get("/chat/status", { timeout: 8000 });
+}
+
+export function wakeChatService() {
+  return api.post("/chat/wake", {}, { timeout: 8000 });
 }
 
 export function getChatThreads() {
@@ -41,6 +56,8 @@ export function getBenchmarks() {
 
 export default {
   sendChatMessage,
+  getChatServiceStatus,
+  wakeChatService,
   getChatThreads,
   getThreadMessages,
   getThreadGraph,
@@ -48,5 +65,3 @@ export default {
   getUserMetrics,
   getBenchmarks,
 };
-
-

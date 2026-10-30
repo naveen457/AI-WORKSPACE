@@ -5,6 +5,8 @@ import {
   getChatThreads,
   getThreadMessages,
   sendChatFeedback,
+  getChatServiceStatus,
+  wakeChatService,
 } from "../../api/chatService.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 
@@ -173,11 +175,60 @@ export default function ChatPage() {
   const [feedbackState, setFeedbackState] = useState({});
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
+  const [engineStatus, setEngineStatus] = useState("checking"); // "ready" | "waking" | "idle"
+  const [sendSeconds, setSendSeconds] = useState(0);
+  const [lastFailedMessage, setLastFailedMessage] = useState(null);
+
   const messages = threadMessages[activeThreadId] || [];
   const isSending = Boolean(sendingThreads[activeThreadId]);
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+
+  // Proactively check AI engine status and trigger wake-up ping on mount
+  useEffect(() => {
+    let isMounted = true;
+    async function checkEngine() {
+      try {
+        const res = await getChatServiceStatus();
+        if (!isMounted) return;
+        if (res.data?.ready) {
+          setEngineStatus("ready");
+        } else if (res.data?.status === "waking_up") {
+          setEngineStatus("waking");
+        } else {
+          setEngineStatus("idle");
+        }
+      } catch (err) {
+        if (isMounted) setEngineStatus("idle");
+      }
+    }
+
+    // Wake the service in the background immediately on mount
+    wakeChatService().catch(() => {});
+    checkEngine();
+
+    // Check again after 12 seconds to see if container finished spinning up
+    const timer = setTimeout(checkEngine, 12000);
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, []);
+
+  // Track elapsed seconds while sending to give helpful cold-start feedback
+  useEffect(() => {
+    let timer;
+    if (isSending) {
+      setSendSeconds(0);
+      timer = setInterval(() => {
+        setSendSeconds((prev) => prev + 1);
+      }, 1000);
+    } else {
+      setSendSeconds(0);
+    }
+    return () => clearInterval(timer);
+  }, [isSending]);
 
   useEffect(() => {
     async function loadThreadCatalog() {
@@ -206,6 +257,7 @@ export default function ChatPage() {
   async function handleSelectThread(threadId) {
     setActiveThreadId(threadId);
     setError(null);
+    setLastFailedMessage(null);
 
     // If this thread's messages are not cached yet, fetch from backend
     if (!threadMessages[threadId] || threadMessages[threadId].length === 0) {
@@ -237,6 +289,7 @@ export default function ChatPage() {
     setActiveThreadId(newSha);
     setThreadMessages((prev) => ({ ...prev, [newSha]: [] }));
     setError(null);
+    setLastFailedMessage(null);
     setInput("");
     inputRef.current?.focus();
 
@@ -302,12 +355,20 @@ export default function ChatPage() {
         ...prev,
         [targetThreadId]: [...(prev[targetThreadId] || []), assistantMessage],
       }));
+      setEngineStatus("ready");
+      setLastFailedMessage(null);
     } catch (err) {
+      const isCold = err.response?.data?.isColdStart || err.response?.status === 503;
       const message =
         err.response?.data?.message ||
-        "Unable to connect to the AI service. Please make sure RL_Based_AMAS is running.";
+        (err.code === "ECONNABORTED"
+          ? "Request timed out while the AI service was waking up from Render sleep. Please click Retry."
+          : isCold
+          ? "The AI service is waking up from idle on Render. Please wait a moment and click Retry."
+          : "Unable to connect to the AI service. Please make sure RL_Based_AMAS is running.");
       if (activeThreadId === targetThreadId) {
         setError(message);
+        setLastFailedMessage(trimmed);
       }
     } finally {
       setSendingThreads((prev) => {
@@ -432,13 +493,33 @@ export default function ChatPage() {
               </svg>
             </button>
 
-            <div>
+            <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-neutral-500">
                   Thread SHA:
                 </span>
                 <span className="font-mono text-sm font-bold text-[#d47f4f]">
                   {activeThreadId}
+                </span>
+              </div>
+
+              {/* Live AI Engine Status Badge */}
+              <div className="hidden sm:flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] font-medium text-gray-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    engineStatus === "ready"
+                      ? "bg-emerald-500"
+                      : engineStatus === "waking"
+                      ? "bg-amber-500 animate-pulse"
+                      : "bg-gray-400"
+                  }`}
+                />
+                <span>
+                  {engineStatus === "ready"
+                    ? "AI Ready"
+                    : engineStatus === "waking"
+                    ? "AI Warming Up..."
+                    : "AI Idle"}
                 </span>
               </div>
             </div>
@@ -481,17 +562,40 @@ export default function ChatPage() {
                   <div className="rounded-2xl rounded-bl-sm border border-gray-200/80 bg-gray-50 px-5 py-3.5 text-sm dark:border-neutral-800 dark:bg-neutral-900">
                     <div className="flex items-center gap-2">
                       <div className="h-2 w-2 animate-pulse rounded-full bg-[#d47f4f]" />
-                      <span className="text-gray-500 dark:text-neutral-400">
-                        Reasoning with Adaptive Multi-Agent System...
+                      <span className="font-medium text-gray-700 dark:text-neutral-200">
+                        {sendSeconds < 4
+                          ? "Reasoning with Adaptive Multi-Agent System..."
+                          : sendSeconds < 30
+                          ? "Connecting to AI engine (waking from Render free tier sleep)..."
+                          : "Executing agent reasoning graph..."}
                       </span>
                     </div>
+                    {sendSeconds >= 4 && (
+                      <p className="mt-1.5 text-[11px] text-gray-400 dark:text-neutral-500 pl-4">
+                        Render free-tier spins down after inactivity. Waking up and keeping connection active... ({sendSeconds}s)
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
 
               {error && (
-                <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs text-red-600 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-400">
-                  <div className="font-bold">Error Processing Message</div>
+                <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
+                  <div className="flex items-center justify-between">
+                    <div className="font-bold flex items-center gap-1.5">
+                      <span className="inline-block h-2 w-2 rounded-full bg-amber-500" />
+                      Notice from AI Engine
+                    </div>
+                    {lastFailedMessage && (
+                      <button
+                        type="button"
+                        onClick={() => send(lastFailedMessage)}
+                        className="rounded-lg bg-[#eaa06d] px-3 py-1 font-bold text-white transition hover:bg-[#df925e]"
+                      >
+                        Retry Message
+                      </button>
+                    )}
+                  </div>
                   <div className="mt-1">{error}</div>
                 </div>
               )}

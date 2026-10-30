@@ -14,6 +14,7 @@ const connectDB = require("./config/db.js");
 const authRoutes = require("./routes/auth.routes.js");
 const phoneRoutes = require("./routes/phone.routes.js");
 const chatRoutes = require("./routes/chat.routes.js");
+const { startKeepAlive } = require("./services/keepAlive.service.js");
 
 require("./config/passport.js");
 
@@ -22,6 +23,9 @@ if (process.env.MONGO_URI) {
 } else {
   console.warn("MONGO_URI is not set; continuing without database connection.");
 }
+
+// Start automatic keep-alive pinger for Render services
+startKeepAlive();
 
 const app = express();
 const CLIENT_URL = process.env.CLIENT_URL

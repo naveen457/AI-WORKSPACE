@@ -1,6 +1,8 @@
 const { logInfo, logError } = require("../utils/logger.js");
 const {
   callLlmService,
+  checkServiceHealth,
+  wakeService,
   fetchThreads,
   fetchThreadMessages,
   fetchThreadGraph,
@@ -8,6 +10,7 @@ const {
   fetchMetrics,
   fetchBenchmarks,
 } = require("../services/llmService.js");
+const { recordUserActivity } = require("../services/keepAlive.service.js");
 
 function getPublicUser(user) {
   return {
@@ -37,6 +40,7 @@ async function sendMessage(req, res) {
     }
 
     const trimmedMessage = message.trim();
+    recordUserActivity();
 
     logInfo("Chat message received", {
       authId: user.id || user._id,
@@ -71,10 +75,15 @@ async function sendMessage(req, res) {
         code: llmError.code,
       });
 
-      assistantContent =
-        llmError.code === "RL_LLM_SERVICE_NOT_CONFIGURED"
-          ? "The AI service is not configured yet."
-          : "Unable to connect to the AI service. Please try again.";
+      return res.status(503).json({
+        success: false,
+        message:
+          llmError.code === "RL_LLM_SERVICE_NOT_CONFIGURED"
+            ? "The AI service is not configured yet."
+            : "The AI service is waking up from idle on Render. Please wait a few seconds and try sending again.",
+        isColdStart: true,
+        code: llmError.code || "RL_LLM_SERVICE_UNAVAILABLE",
+      });
     }
 
     return res.status(200).json({
@@ -224,6 +233,38 @@ async function getBenchmarks(req, res) {
   }
 }
 
+async function getServiceStatus(req, res) {
+  try {
+    const status = await checkServiceHealth();
+    return res.status(200).json({
+      success: true,
+      ...status,
+    });
+  } catch (error) {
+    return res.status(200).json({
+      success: true,
+      ready: false,
+      status: "waking_up",
+    });
+  }
+}
+
+async function triggerWakeService(req, res) {
+  try {
+    recordUserActivity();
+    const result = await wakeService();
+    return res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    return res.status(200).json({
+      success: true,
+      triggered: false,
+    });
+  }
+}
+
 module.exports = {
   sendMessage,
   getThreads,
@@ -232,6 +273,8 @@ module.exports = {
   submitFeedback,
   getUserMetrics,
   getBenchmarks,
+  getServiceStatus,
+  triggerWakeService,
 };
 
 

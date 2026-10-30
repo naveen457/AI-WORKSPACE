@@ -10,8 +10,13 @@ const {
   submitFeedback,
   getUserMetrics,
   getBenchmarks,
+  getServiceStatus,
+  triggerWakeService,
 } = require("../controllers/chat.controller.js");
 
+router.get("/status", getServiceStatus);
+router.post("/wake", triggerWakeService);
+router.get("/wake", triggerWakeService);
 router.post("/", requireAuth, sendMessage);
 router.get("/threads", requireAuth, getThreads);
 router.get("/metrics", requireAuth, getUserMetrics);
