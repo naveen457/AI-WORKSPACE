@@ -185,36 +185,83 @@ export default function ChatPage() {
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Proactively check AI engine status and trigger wake-up ping on mount
+  // Proactively wake and continuously poll AI engine until container finishes booting
   useEffect(() => {
     let isMounted = true;
-    async function checkEngine() {
+    let pollInterval = null;
+    let pollAttempts = 0;
+    const maxPollAttempts = 22; // ~88s coverage for Render spin-up
+
+    async function pollStatus() {
+      pollAttempts += 1;
       try {
         const res = await getChatServiceStatus();
         if (!isMounted) return;
+
         if (res.data?.ready) {
           setEngineStatus("ready");
-        } else if (res.data?.status === "waking_up") {
+          if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+          }
+        } else if (res.data?.status === "waking_up" || res.data?.status === "checking") {
           setEngineStatus("waking");
-        } else {
+        } else if (pollAttempts >= maxPollAttempts) {
           setEngineStatus("idle");
+          if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+          }
         }
       } catch (err) {
-        if (isMounted) setEngineStatus("idle");
+        if (!isMounted) return;
+        // During cold start, network errors or timeouts are expected
+        if (pollAttempts >= maxPollAttempts) {
+          setEngineStatus("idle");
+          if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+          }
+        } else {
+          setEngineStatus("waking");
+        }
       }
     }
 
-    // Wake the service in the background immediately on mount
+    // Trigger immediate background wake ping
+    setEngineStatus("waking");
     wakeChatService().catch(() => {});
-    checkEngine();
+    pollStatus();
 
-    // Check again after 12 seconds to see if container finished spinning up
-    const timer = setTimeout(checkEngine, 12000);
+    // Poll every 4 seconds until container is ready
+    pollInterval = setInterval(pollStatus, 4000);
+
     return () => {
       isMounted = false;
-      clearTimeout(timer);
+      if (pollInterval) clearInterval(pollInterval);
     };
   }, []);
+
+  async function handleManualWake() {
+    setEngineStatus("waking");
+    try {
+      await wakeChatService();
+    } catch {}
+
+    // Check status after brief delay
+    setTimeout(async () => {
+      try {
+        const res = await getChatServiceStatus();
+        if (res.data?.ready) {
+          setEngineStatus("ready");
+        } else {
+          setEngineStatus("waking");
+        }
+      } catch {
+        setEngineStatus("waking");
+      }
+    }, 2000);
+  }
 
   // Track elapsed seconds while sending to give helpful cold-start feedback
   useEffect(() => {
@@ -503,8 +550,26 @@ export default function ChatPage() {
                 </span>
               </div>
 
-              {/* Live AI Engine Status Badge */}
-              <div className="hidden sm:flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] font-medium text-gray-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
+              {/* Live AI Engine Status Badge / Wake Button */}
+              <button
+                type="button"
+                onClick={engineStatus === "idle" ? handleManualWake : undefined}
+                disabled={engineStatus === "waking"}
+                title={
+                  engineStatus === "ready"
+                    ? "AI Engine is online and ready"
+                    : engineStatus === "waking"
+                    ? "AI Engine is waking up from Render sleep... Please wait"
+                    : "AI Engine is idle. Click to wake it up"
+                }
+                className={`hidden sm:flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
+                  engineStatus === "ready"
+                    ? "border-emerald-200 bg-emerald-50/70 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300"
+                    : engineStatus === "waking"
+                    ? "border-amber-200 bg-amber-50/70 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300 cursor-wait"
+                    : "border-gray-300 bg-gray-50 text-gray-700 hover:border-[#eaa06d] hover:bg-orange-50/50 hover:text-orange-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 cursor-pointer"
+                }`}
+              >
                 <span
                   className={`h-2 w-2 rounded-full ${
                     engineStatus === "ready"
@@ -519,9 +584,9 @@ export default function ChatPage() {
                     ? "AI Ready"
                     : engineStatus === "waking"
                     ? "AI Warming Up..."
-                    : "AI Idle"}
+                    : "AI Idle • Click to Wake"}
                 </span>
-              </div>
+              </button>
             </div>
           </div>
 
@@ -586,15 +651,24 @@ export default function ChatPage() {
                       <span className="inline-block h-2 w-2 rounded-full bg-amber-500" />
                       Notice from AI Engine
                     </div>
-                    {lastFailedMessage && (
+                    <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => send(lastFailedMessage)}
-                        className="rounded-lg bg-[#eaa06d] px-3 py-1 font-bold text-white transition hover:bg-[#df925e]"
+                        onClick={handleManualWake}
+                        className="rounded-lg border border-amber-300 bg-white px-3 py-1 font-semibold text-amber-800 transition hover:bg-amber-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-amber-300"
                       >
-                        Retry Message
+                        Wake AI Service
                       </button>
-                    )}
+                      {lastFailedMessage && (
+                        <button
+                          type="button"
+                          onClick={() => send(lastFailedMessage)}
+                          className="rounded-lg bg-[#eaa06d] px-3 py-1 font-bold text-white transition hover:bg-[#df925e]"
+                        >
+                          Retry Message
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="mt-1">{error}</div>
                 </div>

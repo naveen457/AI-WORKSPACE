@@ -1,4 +1,5 @@
 const { logInfo, logWarn, logError } = require("../utils/logger.js");
+const { triggerWakeSequence, setServiceAwakeState } = require("./keepAlive.service.js");
 
 function getLlmServiceUrl() {
   return (process.env.RL_LLM_API_URL || "").replace(/\/+$/, "");
@@ -51,15 +52,17 @@ async function checkServiceHealth() {
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
     const res = await fetch(`${serviceUrl}/health`, {
       method: "GET",
+      headers: getAuthHeaders(),
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
 
     if (res.ok) {
       const data = await res.json().catch(() => ({}));
+      setServiceAwakeState(true);
       return {
         ready: true,
         status: "ready",
@@ -67,26 +70,28 @@ async function checkServiceHealth() {
       };
     }
 
+    setServiceAwakeState(false);
+
     if (COLD_START_STATUS_CODES.includes(res.status)) {
       return { ready: false, status: "waking_up", statusCode: res.status };
     }
 
     return { ready: false, status: "unhealthy", statusCode: res.status };
   } catch (err) {
+    setServiceAwakeState(false);
     return { ready: false, status: "waking_up", error: err.message };
   }
 }
 
 /**
- * Triggers a wake-up ping to initiate Render container spin-up.
+ * Triggers an active multi-attempt wake-up loop to ensure Render container spin-up.
  */
 async function wakeService() {
   const serviceUrl = getLlmServiceUrl();
-  if (!serviceUrl) return { triggered: false };
+  if (!serviceUrl) return { triggered: false, reason: "not_configured" };
 
-  // Non-blocking ping to initiate Render boot
-  fetch(`${serviceUrl}/health`, { method: "GET" }).catch(() => {});
-  return { triggered: true };
+  const wakeResult = await triggerWakeSequence();
+  return { triggered: true, ...wakeResult };
 }
 
 /**
@@ -149,6 +154,7 @@ async function callLlmService({ message, conversationId, userId }) {
           throw error;
         }
 
+        setServiceAwakeState(true);
         if (attempt > 1) {
           logInfo(`RL LLM service woke up and succeeded on attempt ${attempt}`);
         }
