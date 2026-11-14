@@ -1,8 +1,18 @@
 const { logInfo, logWarn, logError } = require("../utils/logger.js");
-const { triggerWakeSequence, setServiceAwakeState } = require("./keepAlive.service.js");
+const {
+  triggerWakeSequence,
+  setServiceAwakeState,
+  isServiceReady,
+  isWakeActive,
+} = require("./keepAlive.service.js");
 
 function getLlmServiceUrl() {
-  return (process.env.RL_LLM_API_URL || "").replace(/\/+$/, "");
+  let url = (process.env.RL_LLM_API_URL || "").trim().replace(/\/+$/, "");
+  // Force HTTPS if onrender.com to avoid redirect issues
+  if (url.includes(".onrender.com") && url.startsWith("http://")) {
+    url = url.replace("http://", "https://");
+  }
+  return url;
 }
 
 function getAuthHeaders(extraHeaders = {}) {
@@ -50,9 +60,23 @@ async function checkServiceHealth() {
     return { ready: false, status: "not_configured" };
   }
 
+  // If a wake sequence is already actively holding the line to Render, report waking without creating conflicting fetches
+  if (isWakeActive()) {
+    const ready = isServiceReady();
+    return {
+      ready,
+      status: ready ? "ready" : "waking_up",
+    };
+  }
+
+  // If already confirmed awake, fast return
+  if (isServiceReady()) {
+    return { ready: true, status: "ready" };
+  }
+
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
     const res = await fetch(`${serviceUrl}/health`, {
       method: "GET",
       headers: getAuthHeaders(),
@@ -73,12 +97,40 @@ async function checkServiceHealth() {
     setServiceAwakeState(false);
 
     if (COLD_START_STATUS_CODES.includes(res.status)) {
+      triggerWakeSequence().catch(() => {});
       return { ready: false, status: "waking_up", statusCode: res.status };
     }
 
     return { ready: false, status: "unhealthy", statusCode: res.status };
   } catch (err) {
     setServiceAwakeState(false);
+    const msg = (err.message || "").toLowerCase();
+    const code = (err.code || err.cause?.code || "").toLowerCase();
+
+    // If pointing to localhost and connection is refused, the local server is simply not running
+    if (
+      (serviceUrl.includes("localhost") || serviceUrl.includes("127.0.0.1")) &&
+      (msg.includes("refused") || code.includes("refused") || msg.includes("fetch failed"))
+    ) {
+      return {
+        ready: false,
+        status: "offline",
+        isLocal: true,
+        error: `Local AI service at ${serviceUrl} is not running. Start uvicorn or set RL_LLM_API_URL in server/.env to your Render URL.`,
+      };
+    }
+
+    // If DNS resolution fails, host is invalid
+    if (code.includes("notfound") || msg.includes("enotfound")) {
+      return {
+        ready: false,
+        status: "not_found",
+        error: `Host could not be resolved: ${serviceUrl}. Please check RL_LLM_API_URL in server/.env.`,
+      };
+    }
+
+    // Start background wake sequence if not already in progress
+    triggerWakeSequence().catch(() => {});
     return { ready: false, status: "waking_up", error: err.message };
   }
 }

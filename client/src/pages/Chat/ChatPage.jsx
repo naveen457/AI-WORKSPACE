@@ -176,6 +176,7 @@ export default function ChatPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const [engineStatus, setEngineStatus] = useState("checking"); // "ready" | "waking" | "idle"
+  const [engineNotice, setEngineNotice] = useState(null);
   const [sendSeconds, setSendSeconds] = useState(0);
   const [lastFailedMessage, setLastFailedMessage] = useState(null);
 
@@ -184,43 +185,62 @@ export default function ChatPage() {
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const pollIntervalRef = useRef(null);
 
-  // Proactively wake and continuously poll AI engine until container finishes booting
-  useEffect(() => {
-    let isMounted = true;
-    let pollInterval = null;
+  function startEnginePolling(maxAttempts = 22) {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+
     let pollAttempts = 0;
-    const maxPollAttempts = 22; // ~88s coverage for Render spin-up
+    setEngineStatus("waking");
 
-    async function pollStatus() {
+    async function poll() {
       pollAttempts += 1;
       try {
         const res = await getChatServiceStatus();
-        if (!isMounted) return;
 
         if (res.data?.ready) {
           setEngineStatus("ready");
-          if (pollInterval) {
-            clearInterval(pollInterval);
-            pollInterval = null;
+          setEngineNotice(null);
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
           }
-        } else if (res.data?.status === "waking_up" || res.data?.status === "checking") {
-          setEngineStatus("waking");
-        } else if (pollAttempts >= maxPollAttempts) {
+          return;
+        }
+
+        // If service is offline (e.g. local uvicorn not running) or invalid config, halt polling immediately
+        if (res.data?.status === "offline" || res.data?.status === "not_configured" || res.data?.status === "not_found") {
           setEngineStatus("idle");
-          if (pollInterval) {
-            clearInterval(pollInterval);
-            pollInterval = null;
+          setEngineNotice(res.data.error || "AI service is offline. Please check connection.");
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
+          }
+          return;
+        }
+
+        if (res.data?.status === "waking_up" || res.data?.status === "checking") {
+          setEngineStatus("waking");
+        }
+
+        if (pollAttempts >= maxAttempts) {
+          setEngineStatus("idle");
+          setEngineNotice("AI engine wake timed out. If hosted on Render, check the service or click to retry.");
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
           }
         }
       } catch (err) {
-        if (!isMounted) return;
-        // During cold start, network errors or timeouts are expected
-        if (pollAttempts >= maxPollAttempts) {
+        if (pollAttempts >= maxAttempts) {
           setEngineStatus("idle");
-          if (pollInterval) {
-            clearInterval(pollInterval);
-            pollInterval = null;
+          setEngineNotice("Unable to reach AI service. Click to retry.");
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
           }
         } else {
           setEngineStatus("waking");
@@ -228,39 +248,30 @@ export default function ChatPage() {
       }
     }
 
-    // Trigger immediate background wake ping
-    setEngineStatus("waking");
-    wakeChatService().catch(() => {});
-    pollStatus();
+    // Trigger immediate poll then poll every 4 seconds
+    poll();
+    pollIntervalRef.current = setInterval(poll, 4000);
+  }
 
-    // Poll every 4 seconds until container is ready
-    pollInterval = setInterval(pollStatus, 4000);
+  // Proactively wake and poll AI engine on mount
+  useEffect(() => {
+    wakeChatService().catch(() => {});
+    startEnginePolling();
 
     return () => {
-      isMounted = false;
-      if (pollInterval) clearInterval(pollInterval);
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
     };
   }, []);
 
   async function handleManualWake() {
-    setEngineStatus("waking");
+    setEngineNotice(null);
     try {
       await wakeChatService();
     } catch {}
-
-    // Check status after brief delay
-    setTimeout(async () => {
-      try {
-        const res = await getChatServiceStatus();
-        if (res.data?.ready) {
-          setEngineStatus("ready");
-        } else {
-          setEngineStatus("waking");
-        }
-      } catch {
-        setEngineStatus("waking");
-      }
-    }, 2000);
+    startEnginePolling();
   }
 
   // Track elapsed seconds while sending to give helpful cold-start feedback
@@ -556,11 +567,12 @@ export default function ChatPage() {
                 onClick={engineStatus === "idle" ? handleManualWake : undefined}
                 disabled={engineStatus === "waking"}
                 title={
-                  engineStatus === "ready"
+                  engineNotice ||
+                  (engineStatus === "ready"
                     ? "AI Engine is online and ready"
                     : engineStatus === "waking"
                     ? "AI Engine is waking up from Render sleep... Please wait"
-                    : "AI Engine is idle. Click to wake it up"
+                    : "AI Engine is idle. Click to wake it up")
                 }
                 className={`hidden sm:flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
                   engineStatus === "ready"
@@ -599,6 +611,23 @@ export default function ChatPage() {
             <span>New Chat</span>
           </button>
         </header>
+
+        {/* Engine Notice Banner */}
+        {engineNotice && engineStatus === "idle" && (
+          <div className="flex items-center justify-between border-b border-amber-200 bg-amber-50/80 px-4 py-2 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-amber-500" />
+              <span>{engineNotice}</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleManualWake}
+              className="ml-4 font-bold underline hover:text-amber-900 dark:hover:text-amber-100"
+            >
+              Retry Wake
+            </button>
+          </div>
+        )}
 
         {/* Message List */}
         <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-4">
